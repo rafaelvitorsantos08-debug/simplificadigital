@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Store, Tag, Target, ArrowRight, Check, Sparkles } from 'lucide-react';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 export default function OnboardingFlow({ onComplete }: { onComplete: (data: any) => Promise<void> }) {
   const [step, setStep] = useState(1);

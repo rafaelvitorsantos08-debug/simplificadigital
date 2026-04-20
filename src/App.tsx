@@ -1,7 +1,7 @@
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import OnboardingFlow from './components/OnboardingFlow';
 import { Sparkles, Loader2, LogIn, LogOut, Camera, Mic, BarChart3, TrendingUp } from 'lucide-react';
-import { Button } from './components/ui/button';
+import { Button } from '@/components/ui/button';
 
 function MainApp() {
   const { user, userData, loading, loginWithGoogle, logout, updateUserData } = useAuth();
