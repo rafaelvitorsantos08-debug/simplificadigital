@@ -1,0 +1,9 @@
+{
+  "name": "Simplifica Digital",
+  "description": "Ecossistema de gestão all-in-one para microempreendedores com entrada de dados via IA (OCR e NLP) e foco em fluidez mobile.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": []
+}

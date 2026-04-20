@@ -1,0 +1,72 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A business owner using Simplifica Digital.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "businessName": { "type": "string" },
+        "segment": { "type": "string" },
+        "dailyGoal": { "type": "number" },
+        "setupFinished": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["name", "email", "createdAt", "updatedAt"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "An item in the user's inventory.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "purchasePrice": { "type": "number", "description": "Optional purchase cost" },
+        "sellPrice": { "type": "number" },
+        "stock": { "type": "number" },
+        "category": { "type": "string" },
+        "minStockAlert": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "name", "sellPrice", "stock", "createdAt", "updatedAt"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "A sale or expense recorded by the user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "type": "string", "enum": ["venda", "custo"] },
+        "paymentMethod": { "type": "string", "enum": ["pix", "cash", "card", "unknown"] },
+        "description": { "type": "string" },
+        "items": {
+          "type": "array",
+          "items": { "type": "object" },
+          "description": "List of products involved"
+        },
+        "statusColor": { "type": "string", "enum": ["green", "yellow", "red", "none"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["userId", "amount", "type", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Stores user profiles."
+    },
+    "/users/{userId}/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Stores inventory for a specific user."
+    },
+    "/users/{userId}/transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/Transaction" },
+      "description": "Stores sales/costs for a specific user."
+    }
+  }
+}
