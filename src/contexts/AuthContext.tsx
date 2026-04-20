@@ -67,8 +67,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const loginWithGoogle = async () => {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+    try {
+      const provider = new GoogleAuthProvider();
+      // Opcional: provider.setCustomParameters({ prompt: 'select_account' })
+      await signInWithPopup(auth, provider);
+    } catch (error: any) {
+      console.error("Erro no login com o Google:", error);
+      if (error.code === 'auth/unauthorized-domain') {
+        alert("Erro: O domínio da sua Vercel não está autorizado no Firebase. Vá no Console do Firebase > Authentication > Settings (Configurações) > Authorized domains (Domínios Autorizados) e adicione o seu domínio da Vercel.");
+      } else if (error.code === 'auth/popup-blocked') {
+        alert("O seu navegador bloqueou o popup de login. Por favor, permita popups para este site.");
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        // Usuário fechou o popup intencionalmente, nada a fazer
+      } else {
+        alert("Ocorreu um erro ao tentar fazer login: " + error.message);
+      }
+    }
   };
 
   const logout = async () => {
