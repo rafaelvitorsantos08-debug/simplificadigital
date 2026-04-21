@@ -337,7 +337,7 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
                </div>
              ) : (
                <div className="flex items-center gap-2 cursor-pointer group" onClick={() => { setTempGoal(String(userData?.dailyGoal || 0)); setIsEditingGoal(true); }}>
-                 <span className="whitespace-nowrap">Meta do dia: R$ {userData?.dailyGoal ? (userData.dailyGoal).toFixed(2) : '0.00'}</span>
+                 <span className="whitespace-nowrap">Meta do dia: R$ {Number(userData?.dailyGoal || 0).toFixed(2).replace('.', ',')}</span>
                  <Pencil size={14} className="opacity-50 group-hover:opacity-100 transition-opacity" />
                </div>
              )}
@@ -347,16 +347,16 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
              <div className="w-full bg-secondary h-3 rounded-full mb-2 overflow-hidden shadow-inner relative">
                 <div 
                   className="bg-primary h-full rounded-full shadow-[0_0_10px_rgba(0,255,102,0.5)] transition-all duration-1000 ease-out absolute left-0 top-0"
-                  style={{ width: `${Math.min(100, userData?.dailyGoal ? (todayTotal / userData.dailyGoal) * 100 : 0)}%` }}
+                  style={{ width: `${Math.min(100, Number(userData?.dailyGoal) > 0 ? (todayTotal / Number(userData?.dailyGoal)) * 100 : 0)}%` }}
                 ></div>
              </div>
              {todayTotal === 0 ? (
                <div className="text-sm text-muted-foreground max-w-md mt-4">Nenhuma venda registrada ainda. Que tal começar agora?</div>
              ) : (
                <div className="text-sm font-medium mt-4">
-                 {userData?.dailyGoal && todayTotal >= userData.dailyGoal 
+                 {Number(userData?.dailyGoal) > 0 && todayTotal >= Number(userData?.dailyGoal) 
                    ? <span className="text-primary font-bold">Meta atingida! Parabéns! 🎉</span>
-                   : <span className="text-muted-foreground">Faltam R$ {((userData?.dailyGoal || 0) - todayTotal).toFixed(2)} para bater a meta.</span>
+                   : <span className="text-muted-foreground">Faltam R$ {Math.max(0, Number(userData?.dailyGoal || 0) - todayTotal).toFixed(2).replace('.', ',')} para bater a meta.</span>
                  }
                </div>
              )}
