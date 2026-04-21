@@ -1,5 +1,5 @@
 const getApiKey = () => {
-  const apiKey = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY || process.env.API_GEMINI_KEY || import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_API_GEMINI_KEY;
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY não configurada. Defina na Vercel e faça um novo deploy.');
   }

@@ -3,6 +3,8 @@ import { Camera, Mic, BarChart3, TrendingUp, PackagePlus, UserPlus, X, Phone, St
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { processAudioSale, processPhotoSale } from '../services/geminiService';
+import { db } from '../lib/firebase';
+import { collection, addDoc, serverTimestamp, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
 
 export default function Dashboard({ userData, user, logout }: any) {
   const [activeAction, setActiveAction] = useState<string | null>(null);
@@ -105,13 +107,51 @@ export default function Dashboard({ userData, user, logout }: any) {
     }
   };
 
+  useEffect(() => {
+    // Fetch today's sales
+    const fetchTodaySales = async () => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      try {
+        const q = query(
+          collection(db, 'sales'),
+          where('userId', '==', user.uid),
+          where('createdAt', '>=', today)
+        );
+        const snapshot = await getDocs(q);
+        let total = 0;
+        snapshot.forEach(doc => {
+          total += Number(doc.data().valor || 0);
+        });
+        setTodayTotal(total);
+      } catch(e) {
+        console.error("Error fetching sales: ", e);
+      }
+    };
+    fetchTodaySales();
+  }, [user.uid]);
+
+  const saveSaleToDB = async (saleData: any) => {
+    try {
+      await addDoc(collection(db, 'sales'), {
+        ...saleData,
+        userId: user.uid,
+        createdAt: serverTimestamp()
+      });
+      // Fetch again to ensure accuracy or just add to state
+      setTodayTotal(prev => prev + Number(saleData.valor || 0));
+    } catch(e) {
+      console.error("Erro ao salvar venda:", e);
+    }
+  };
+
   const processPhoto = async () => {
     if (!photoData) return;
     try {
       setIsProcessing(true);
       const data = await processPhotoSale(photoData);
       setSaleResult(data);
-      if(data.valor) setTodayTotal(prev => prev + Number(data.valor));
+      await saveSaleToDB(data);
     } catch (e: any) {
       alert("Erro na IA: " + e.message);
     } finally {
@@ -136,7 +176,7 @@ export default function Dashboard({ userData, user, logout }: any) {
         try {
           const data = await processAudioSale(audioBlob);
           setSaleResult(data);
-          if(data.valor) setTodayTotal(prev => prev + Number(data.valor));
+          await saveSaleToDB(data);
         } catch (e: any) {
           alert("Erro na IA: " + e.message);
         } finally {
@@ -196,16 +236,57 @@ export default function Dashboard({ userData, user, logout }: any) {
   }
 
   // Handler WhatsApp
-  const handleCallClient = () => {
+  const handleCallClient = async () => {
     const number = cliWhatsapp.replace(/\D/g, '');
     if(!number) {
        alert("Digite um número de WhatsApp válido.");
        return;
     }
+    await handleSaveClient(false);
     const text = `Olá ${cliSocial || cliName}, tudo bem? Viemos falar sobre ${cliItem}.`;
     window.open(`https://wa.me/55${number}?text=${encodeURIComponent(text)}`, '_blank');
-    setShowClientModal(false);
-    setCliName(''); setCliSocial(''); setCliWhatsapp(''); setCliItem('');
+  };
+
+  const handleSaveInventory = async () => {
+    try {
+      await addDoc(collection(db, 'inventory'), {
+        userId: user.uid,
+        name: invName,
+        summary: invSummary,
+        qty: Number(invQty),
+        price: Number(invPrice),
+        createdAt: serverTimestamp()
+      });
+      alert("Estoque/Serviço salvo com sucesso!");
+      setShowInventoryModal(false);
+      setInvName(''); setInvSummary(''); setInvQty(''); setInvPrice('');
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao salvar estoque.");
+    }
+  };
+
+  const handleSaveClient = async (showAlert = true) => {
+    try {
+      await addDoc(collection(db, 'clients'), {
+        userId: user.uid,
+        name: cliName,
+        socialName: cliSocial,
+        whatsapp: cliWhatsapp,
+        item: cliItem,
+        createdAt: serverTimestamp()
+      });
+      if (showAlert) {
+        alert("Cliente salvo no sistema!"); 
+      }
+      setShowClientModal(false);
+      if (showAlert) {
+        setCliName(''); setCliSocial(''); setCliWhatsapp(''); setCliItem('');
+      }
+    } catch (e) {
+      console.error(e);
+      if (showAlert) alert("Erro ao salvar cliente.");
+    }
   };
 
   // --- RENDERS DE TELAS INTEIRAS (Ações Principais) ---
@@ -338,31 +419,31 @@ export default function Dashboard({ userData, user, logout }: any) {
         </div>
         
         {/* Sub Cards Inteligentes */}
-        <div className="grid grid-rows-2 gap-6">
+        <div className="grid grid-rows-2 gap-6 z-10 relative">
           <div className="bg-card rounded-[24px] p-6 lg:p-8 flex flex-col shadow-lg border border-border/30 relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            <div className="flex justify-between items-start mb-2">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+            <div className="flex justify-between items-start mb-2 relative z-10">
               <div>
                 <div className="text-[12px] sm:text-[14px] uppercase tracking-[2px] text-muted-foreground mb-1 font-medium">Estoque / Serviços</div>
                 <div className="text-sm text-foreground/50 italic mb-4">Gerencie seu portfólio</div>
               </div>
               <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-primary"><PackagePlus size={20}/></div>
             </div>
-            <Button variant="secondary" className="mt-auto w-full font-semibold border border-primary/20 text-primary hover:bg-primary/10" onClick={() => setShowInventoryModal(true)}>
+            <Button variant="secondary" className="mt-auto w-full font-semibold border border-primary/20 text-primary hover:bg-primary/10 relative z-10" onClick={() => setShowInventoryModal(true)}>
               + Adicionar Novo
             </Button>
           </div>
           
           <div className="bg-card rounded-[24px] p-6 lg:p-8 flex flex-col shadow-lg border border-border/30 relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-br from-[#FFB800]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            <div className="flex justify-between items-start mb-2">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#FFB800]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+            <div className="flex justify-between items-start mb-2 relative z-10">
               <div>
                 <div className="text-[12px] sm:text-[14px] uppercase tracking-[2px] text-muted-foreground mb-1 font-medium">Clientes VIP</div>
                 <div className="text-sm text-foreground/50 italic mb-4">Crie contatos rápidos</div>
               </div>
               <div className="w-10 h-10 bg-[#FFB800]/10 rounded-full flex items-center justify-center text-[#FFB800]"><UserPlus size={20}/></div>
             </div>
-            <Button variant="secondary" className="mt-auto w-full font-semibold border border-[#FFB800]/20 text-[#FFB800] hover:bg-[#FFB800]/10" onClick={() => setShowClientModal(true)}>
+            <Button variant="secondary" className="mt-auto w-full font-semibold border border-[#FFB800]/20 text-[#FFB800] hover:bg-[#FFB800]/10 relative z-10" onClick={() => setShowClientModal(true)}>
               + Cadastrar Cliente
             </Button>
           </div>
@@ -413,11 +494,7 @@ export default function Dashboard({ userData, user, logout }: any) {
                   <Input type="number" placeholder="Ex: 89.90" value={invPrice} onChange={e => setInvPrice(e.target.value)} className="h-12 bg-secondary/50 border-border" />
                 </div>
               </div>
-              <Button size="lg" className="w-full h-12 mt-2 text-lg font-semibold shadow-md" onClick={() => {
-                alert("Estoque/Sereviço salvo localmente com sucesso! (Integração DB em breve)");
-                setShowInventoryModal(false);
-                setInvName(''); setInvSummary(''); setInvQty(''); setInvPrice('');
-              }}>
+              <Button size="lg" className="w-full h-12 mt-2 text-lg font-semibold shadow-md" onClick={handleSaveInventory}>
                 💾 Salvar Estoque
               </Button>
             </div>
@@ -453,10 +530,7 @@ export default function Dashboard({ userData, user, logout }: any) {
               </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
-                <Button variant="outline" size="lg" className="w-full border-border h-12" onClick={() => {
-                  alert("Cliente salvo no sistema!"); 
-                  setShowClientModal(false);
-                }}>
+                <Button variant="outline" size="lg" className="w-full border-border h-12" onClick={() => handleSaveClient(true)}>
                   Salvar Apenas
                 </Button>
                 <Button size="lg" className="w-full h-12 bg-[#FFB800] hover:bg-[#E5A600] text-black font-bold border-0" onClick={handleCallClient}>

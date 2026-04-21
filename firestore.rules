@@ -14,62 +14,32 @@ service cloud.firestore {
     function existing() { return resource.data; }
     function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
 
-    // Users Collection
     match /users/{userId} {
-      // Must be owner to read their own profile
       allow get: if isOwner(userId) && isValidId(userId);
       allow list: if isOwner(userId) && isValidId(userId);
-
-      // Create / Update
       function isValidUser(data) {
-        return data.keys().hasAll(['name', 'email', 'createdAt', 'updatedAt']) 
-          && data.name is string && data.name.size() <= 100
-          && data.email is string && data.email.size() <= 150
-          && data.createdAt is timestamp
-          && data.updatedAt is timestamp;
+        return data.name is string && data.email is string;
       }
-      
-      allow create: if isOwner(userId) && isValidId(userId) && isValidUser(incoming()) && incoming().createdAt == request.time;
-      allow update: if isOwner(userId) && isValidId(userId) && isValidUser(incoming()) && incoming().updatedAt == request.time && incoming().createdAt == existing().createdAt;
+      allow create, update: if isOwner(userId) && isValidId(userId);
     }
 
-    // Products Subcollection
-    match /users/{userId}/products/{productId} {
-      allow get: if isOwner(userId) && isValidId(userId) && isValidId(productId);
-      allow list: if isOwner(userId) && isValidId(userId);
-
-      function isValidProduct(data) {
-        return data.keys().hasAll(['userId', 'name', 'sellPrice', 'stock', 'createdAt', 'updatedAt'])
-          && data.userId == userId
-          && data.name is string && data.name.size() <= 100
-          && data.sellPrice is number
-          && data.stock is number
-          && data.createdAt is timestamp
-          && data.updatedAt is timestamp;
-      }
-
-      allow create: if isOwner(userId) && isValidId(userId) && isValidId(productId) && isValidProduct(incoming()) && incoming().createdAt == request.time;
-      allow update: if isOwner(userId) && isValidId(userId) && isValidId(productId) && isValidProduct(incoming()) && incoming().updatedAt == request.time && incoming().createdAt == existing().createdAt;
-      allow delete: if isOwner(userId) && isValidId(userId) && isValidId(productId);
+    match /sales/{saleId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid && incoming().userId == request.auth.uid;
     }
 
-    // Transactions Subcollection
-    match /users/{userId}/transactions/{transactionId} {
-      allow get: if isOwner(userId) && isValidId(userId) && isValidId(transactionId);
-      allow list: if isOwner(userId) && isValidId(userId);
-
-      function isValidTransaction(data) {
-        return data.keys().hasAll(['userId', 'amount', 'type', 'createdAt'])
-          && data.userId == userId
-          && data.amount is number
-          && data.type is string && data.type.size() <= 50
-          && data.createdAt is timestamp;
-      }
-
-      allow create: if isOwner(userId) && isValidId(userId) && isValidId(transactionId) && isValidTransaction(incoming()) && incoming().createdAt == request.time;
-      // Triggers or future updates for transactions:
-      allow update: if isOwner(userId) && isValidId(userId) && isValidId(transactionId) && isValidTransaction(incoming()) && incoming().createdAt == existing().createdAt;
-      allow delete: if isOwner(userId) && isValidId(userId) && isValidId(transactionId);
+    match /inventory/{itemId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid && incoming().userId == request.auth.uid;
     }
+
+    match /clients/{clientId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid && incoming().userId == request.auth.uid;
+    }
+
   }
 }
