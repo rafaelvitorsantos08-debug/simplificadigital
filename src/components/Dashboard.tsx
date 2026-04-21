@@ -158,7 +158,11 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
         mediaRecorderRef.current?.stream.getTracks().forEach(t => t.stop());
         
         try {
-          const data = await processAudioSale(audioBlob);
+          const q = query(collection(db, 'inventory'), where('userId', '==', user.uid));
+          const snapshot = await getDocs(q);
+          const inventoryNames = snapshot.docs.map(d => d.data().name);
+
+          const data = await processAudioSale(audioBlob, inventoryNames);
           setSaleResult(data);
           await saveSaleToDB(data);
         } catch (e: any) {

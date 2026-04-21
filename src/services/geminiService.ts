@@ -13,7 +13,7 @@ const getApiKey = () => {
 
 const MODEL_NAME = 'gemini-2.5-flash';
 
-export async function processAudioSale(audioBlob: Blob): Promise<any> {
+export async function processAudioSale(audioBlob: Blob, inventoryNames: string[] = []): Promise<any> {
     const ai = new GoogleGenAI({ apiKey: getApiKey() });
     
     return new Promise((resolve, reject) => {
@@ -22,6 +22,10 @@ export async function processAudioSale(audioBlob: Blob): Promise<any> {
         reader.onloadend = async () => {
             const base64Data = (reader.result as string).split(',')[1];
             
+            const inventoryContext = inventoryNames.length > 0 
+                ? ` Aqui está a lista dos produtos atuais do meu estoque: [${inventoryNames.join(', ')}]. Tente encontrar uma correspondência exata nesta lista se a venda for sobre algum deles, caso não encontre, grave o nome extraído livremente.`
+                : '';
+
             try {
                 const response = await ai.models.generateContent({
                     model: MODEL_NAME,
@@ -36,7 +40,7 @@ export async function processAudioSale(audioBlob: Blob): Promise<any> {
                                     }
                                 },
                                 {
-                                    text: 'Você é um assistente de vendas. Escute o áudio e extraia: 1) Nome do Produto/Serviço. 2) Valor da venda. 3) Método de pagamento. Responda APENAS em um JSON estruturado com {"produto": "...", "valor": 50.00, "pagamento": "PIX"}'
+                                    text: `Você é um assistente de vendas. Escute o áudio e extraia: 1) Nome do Produto/Serviço. 2) Valor da venda. 3) Método de pagamento.${inventoryContext} Responda APENAS em um JSON estruturado com {"produto": "...", "valor": 50.00, "pagamento": "PIX"}. Retorne as chaves em minúsculo e apenas esse objeto JSON.`
                                 }
                             ]
                         }
