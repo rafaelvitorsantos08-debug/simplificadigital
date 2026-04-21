@@ -383,13 +383,13 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
             <div className="absolute inset-0 bg-gradient-to-br from-[#FFB800]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
             <div className="flex justify-between items-start mb-2 relative z-10">
               <div>
-                <div className="text-[12px] sm:text-[14px] uppercase tracking-[2px] text-muted-foreground mb-1 font-medium">Clientes VIP</div>
-                <div className="text-sm text-foreground/50 italic mb-4">Crie contatos rápidos</div>
+                <div className="text-[12px] sm:text-[14px] uppercase tracking-[2px] text-muted-foreground mb-1 font-medium">CRM de Vendas</div>
+                <div className="text-sm text-foreground/50 italic mb-4">Acompanhe leads e clientes</div>
               </div>
               <div className="w-10 h-10 bg-[#FFB800]/10 rounded-full flex items-center justify-center text-[#FFB800]"><UserPlus size={20}/></div>
             </div>
             <Button variant="secondary" className="mt-auto w-full font-semibold border border-[#FFB800]/20 text-[#FFB800] hover:bg-[#FFB800]/10 relative z-10" onClick={() => setActiveAction('clients')}>
-              Gerenciar Clientes
+              Abrir CRM
             </Button>
           </div>
         </div>
