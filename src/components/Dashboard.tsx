@@ -3,7 +3,7 @@ import { Camera, Mic, BarChart3, TrendingUp, PackagePlus, UserPlus, X, Phone, St
 import { Button } from './ui/button';
 import { processAudioSale, processPhotoSale } from '../services/geminiService';
 import { db } from '../lib/firebase';
-import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
 
 import InventoryManager from './InventoryManager';
 import ClientManager from './ClientManager';
@@ -127,8 +127,35 @@ export default function Dashboard({ userData, user, logout }: any) {
       });
       // Fetch again to ensure accuracy or just add to state
       setTodayTotal(prev => prev + Number(saleData.valor || 0));
+
+      // Diminuir do inventário automaticamente
+      if (saleData.produto) {
+        const q = query(collection(db, 'inventory'), where('userId', '==', user.uid));
+        const snapshot = await getDocs(q);
+        let targetDoc: any = null;
+        const searchName = saleData.produto.toLowerCase();
+        
+        snapshot.forEach(d => {
+          const invName = (d.data().name || '').toLowerCase();
+          if (invName === searchName) {
+            targetDoc = d;
+          } else if (invName.includes(searchName) || searchName.includes(invName)) {
+            if (!targetDoc) targetDoc = d;
+          }
+        });
+
+        if (targetDoc) {
+          const currentQty = targetDoc.data().qty || 0;
+          if (currentQty > 0) {
+            await updateDoc(doc(db, 'inventory', targetDoc.id), {
+              qty: currentQty - 1
+            });
+          }
+        }
+      }
+
     } catch(e) {
-      console.error("Erro ao salvar venda:", e);
+      console.error("Erro ao salvar venda/estoque:", e);
     }
   };
 
