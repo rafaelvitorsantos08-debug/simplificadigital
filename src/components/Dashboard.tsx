@@ -1,11 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
-import { Camera, Mic, BarChart3, TrendingUp, PackagePlus, UserPlus, X, Phone, StopCircle, RefreshCcw } from 'lucide-react';
+import { Camera, Mic, BarChart3, TrendingUp, PackagePlus, UserPlus, X, Phone, StopCircle, RefreshCcw, Loader2, CheckCircle2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { processAudioSale, processPhotoSale } from '../services/geminiService';
 
 export default function Dashboard({ userData, user, logout }: any) {
   const [activeAction, setActiveAction] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [saleResult, setSaleResult] = useState<any>(null);
   
+  // Dashboard Sales State (Simulated for this session)
+  const [todayTotal, setTodayTotal] = useState(0);
+
   // Modais Suspensos
   const [showInventoryModal, setShowInventoryModal] = useState(false);
   const [showClientModal, setShowClientModal] = useState(false);
@@ -22,21 +28,22 @@ export default function Dashboard({ userData, user, logout }: any) {
   const [cliWhatsapp, setCliWhatsapp] = useState('');
   const [cliItem, setCliItem] = useState('');
 
-  // Referências para Mídia (Câmera e Áudio)
+  // Referências para Mídia
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  
   const [photoData, setPhotoData] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
-  // 1. Efeito da Câmera (Inicia automaticamente ao abrir 'photo')
+  // 1. Efeito da Câmera
   useEffect(() => {
-    let stream: MediaStream | null = null;
     if (activeAction === 'photo' && !photoData) {
       navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
         .then((s) => {
-          stream = s;
+          streamRef.current = s;
           if (videoRef.current) {
             videoRef.current.srcObject = s;
           }
@@ -44,18 +51,43 @@ export default function Dashboard({ userData, user, logout }: any) {
         .catch(err => {
           console.error("Erro ao acessar câmera:", err);
           alert("Permissão de câmera negada ou dispositivo não encontrado.");
+          setActiveAction(null);
         });
     }
+
     return () => {
-      // Limpar os recursos ao desmontar ou mudar de tela
-      if (stream) stream.getTracks().forEach(t => t.stop());
+      // Limpar a câmera vigorosamente
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
+        streamRef.current = null;
+      }
     };
   }, [activeAction, photoData]);
 
-  // Função Tirar Foto
+  // Forçar fechamento e limpeza de qualquer mídia
+  const closeAction = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
+    }
+    setActiveAction(null);
+    setPhotoData(null);
+    setSaleResult(null);
+    setIsProcessing(false);
+    setIsRecording(false);
+  };
+
   const takePhoto = () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
+      if (video.readyState !== 4) { // HAVE_ENOUGH_DATA
+        alert('Câmera ainda está carregando, por favor aguarde um instante...');
+        return;
+      }
       const canvas = canvasRef.current;
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
@@ -64,7 +96,26 @@ export default function Dashboard({ userData, user, logout }: any) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const dataUrl = canvas.toDataURL('image/jpeg');
         setPhotoData(dataUrl);
+        // Já desliga o stream pra poupar a bateria e não dar tela preta depois
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(t => t.stop());
+          streamRef.current = null;
+        }
       }
+    }
+  };
+
+  const processPhoto = async () => {
+    if (!photoData) return;
+    try {
+      setIsProcessing(true);
+      const data = await processPhotoSale(photoData);
+      setSaleResult(data);
+      if(data.valor) setTodayTotal(prev => prev + Number(data.valor));
+    } catch (e: any) {
+      alert("Erro na IA: " + e.message);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -75,29 +126,74 @@ export default function Dashboard({ userData, user, logout }: any) {
       mediaRecorderRef.current = new MediaRecorder(stream);
       audioChunksRef.current = [];
       mediaRecorderRef.current.ondataavailable = e => audioChunksRef.current.push(e.data);
-      mediaRecorderRef.current.onstop = () => {
+      
+      mediaRecorderRef.current.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        console.log("Áudio gravado com sucesso! Tamanho:", audioBlob.size);
-        // Aqui via de regra já mandaríamos pra nossa IA processar
-        alert("Áudio captado com sucesso! Vamos analisar e registrar a venda (Integração IA em breve)");
-        setActiveAction(null);
+        setIsRecording(false);
+        setIsProcessing(true);
+        mediaRecorderRef.current?.stream.getTracks().forEach(t => t.stop());
+        
+        try {
+          const data = await processAudioSale(audioBlob);
+          setSaleResult(data);
+          if(data.valor) setTodayTotal(prev => prev + Number(data.valor));
+        } catch (e: any) {
+          alert("Erro na IA: " + e.message);
+        } finally {
+          setIsProcessing(false);
+        }
       };
+      
       mediaRecorderRef.current.start();
       setIsRecording(true);
     } catch (err) {
       console.error("Erro no microfone:", err);
       alert("Permissão de microfone negada ou não encontrado.");
+      setActiveAction(null);
     }
   };
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      // Pára os tracks de uso
-      mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
     }
   };
+
+  // Renderização UI do Processamento (IA)
+  if (isProcessing) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-6 text-center">
+        <Loader2 className="w-16 h-16 animate-spin text-primary mb-6" />
+        <h2 className="text-2xl font-bold tracking-tight mb-2">A Mágica da IA do Google</h2>
+        <p className="text-muted-foreground">Extraindo informações, valores e itens da sua venda automaticamente...</p>
+      </div>
+    );
+  }
+
+  // Renderização do Sucesso (IA)
+  if (saleResult) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-6 text-center max-w-sm mx-auto">
+        <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center mb-6">
+           <CheckCircle2 className="w-12 h-12 text-primary" />
+        </div>
+        <h2 className="text-3xl font-bold mb-6">Venda Registrada!</h2>
+        
+        <div className="bg-card border border-border w-full p-6 p-y-4 rounded-2xl text-left mb-8 shadow-lg">
+           <p className="text-sm text-muted-foreground mb-1">Produto / Serviço</p>
+           <p className="font-semibold text-lg mb-4">{saleResult.produto || "Não identificado"}</p>
+           
+           <p className="text-sm text-muted-foreground mb-1">Valor Estimado</p>
+           <p className="font-bold text-2xl mb-4 text-primary">R$ {Number(saleResult.valor || 0).toFixed(2)}</p>
+           
+           <p className="text-sm text-muted-foreground mb-1">Forma de Pagamento</p>
+           <p className="font-semibold">{saleResult.pagamento || "Não identificado"}</p>
+        </div>
+
+        <Button size="lg" className="w-full h-14 text-lg" onClick={closeAction}>Voltar ao Início</Button>
+      </div>
+    );
+  }
 
   // Handler WhatsApp
   const handleCallClient = () => {
@@ -168,11 +264,7 @@ export default function Dashboard({ userData, user, logout }: any) {
                <Button variant="outline" size="lg" className="h-14 px-6" onClick={() => setPhotoData(null)}>
                  <RefreshCcw className="w-5 h-5 mr-2" /> Tentar Novamente
                </Button>
-               <Button size="lg" className="h-14 px-8 shadow-[0_0_15px_rgba(0,255,102,0.4)]" onClick={() => {
-                 alert("Foto pronta! O Gemini fará a extração dos dados."); 
-                 setActiveAction(null); 
-                 setPhotoData(null);
-               }}>
+               <Button size="lg" className="h-14 px-8 shadow-[0_0_15px_rgba(0,255,102,0.4)]" onClick={processPhoto}>
                  Extrair Dados
                </Button>
              </>
@@ -230,7 +322,7 @@ export default function Dashboard({ userData, user, logout }: any) {
                <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></div> Ao vivo
              </span>
           </div>
-          <div className="text-5xl sm:text-7xl lg:text-[84px] font-bold tracking-tight mb-4 text-foreground leading-none">R$ 0,00</div>
+          <div className="text-5xl sm:text-7xl lg:text-[84px] font-bold tracking-tight mb-4 text-foreground leading-none">R$ {todayTotal.toFixed(2).replace('.', ',')}</div>
           
           <div className="flex items-center text-primary text-sm sm:text-lg font-medium mb-8 bg-primary/5 w-fit px-4 py-2 rounded-xl border border-primary/10">
              <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
