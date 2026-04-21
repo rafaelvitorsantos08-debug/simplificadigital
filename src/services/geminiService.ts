@@ -1,9 +1,12 @@
 import { GoogleGenAI } from '@google/genai';
 
 const getApiKey = () => {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_API_GEMINI_KEY || (import.meta as any).env.GEMINI_API_KEY;
+  // Try mapping injected define variables first, then import meta.
+  const apiKey = (typeof process !== 'undefined' && process.env && (process.env.GEMINI_API_KEY || process.env.API_GEMINI_KEY))
+                 || (import.meta as any).env?.VITE_GEMINI_API_KEY 
+                 || (import.meta as any).env?.VITE_API_GEMINI_KEY;
   if (!apiKey) {
-    throw new Error('GEMINI_API_KEY não configurada.');
+    throw new Error('GEMINI_API_KEY não configurada. Caso esteja na Vercel, certifique-se de preencher a Environment Variable com VITE_GEMINI_API_KEY');
   }
   return apiKey;
 };
