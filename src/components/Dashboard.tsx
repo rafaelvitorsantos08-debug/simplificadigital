@@ -1,10 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { Camera, Mic, BarChart3, TrendingUp, PackagePlus, UserPlus, X, Phone, StopCircle, RefreshCcw, Loader2, CheckCircle2 } from 'lucide-react';
 import { Button } from './ui/button';
-import { Input } from './ui/input';
 import { processAudioSale, processPhotoSale } from '../services/geminiService';
 import { db } from '../lib/firebase';
-import { collection, addDoc, serverTimestamp, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
+
+import InventoryManager from './InventoryManager';
+import ClientManager from './ClientManager';
+import ReportsDashboard from './ReportsDashboard';
 
 export default function Dashboard({ userData, user, logout }: any) {
   const [activeAction, setActiveAction] = useState<string | null>(null);
@@ -13,22 +16,6 @@ export default function Dashboard({ userData, user, logout }: any) {
   
   // Dashboard Sales State (Simulated for this session)
   const [todayTotal, setTodayTotal] = useState(0);
-
-  // Modais Suspensos
-  const [showInventoryModal, setShowInventoryModal] = useState(false);
-  const [showClientModal, setShowClientModal] = useState(false);
-
-  // Estados de Estoque
-  const [invName, setInvName] = useState('');
-  const [invSummary, setInvSummary] = useState('');
-  const [invQty, setInvQty] = useState('');
-  const [invPrice, setInvPrice] = useState('');
-
-  // Estados de Cliente
-  const [cliName, setCliName] = useState('');
-  const [cliSocial, setCliSocial] = useState('');
-  const [cliWhatsapp, setCliWhatsapp] = useState('');
-  const [cliItem, setCliItem] = useState('');
 
   // Referências para Mídia
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -235,60 +222,6 @@ export default function Dashboard({ userData, user, logout }: any) {
     );
   }
 
-  // Handler WhatsApp
-  const handleCallClient = async () => {
-    const number = cliWhatsapp.replace(/\D/g, '');
-    if(!number) {
-       alert("Digite um número de WhatsApp válido.");
-       return;
-    }
-    await handleSaveClient(false);
-    const text = `Olá ${cliSocial || cliName}, tudo bem? Viemos falar sobre ${cliItem}.`;
-    window.open(`https://wa.me/55${number}?text=${encodeURIComponent(text)}`, '_blank');
-  };
-
-  const handleSaveInventory = async () => {
-    try {
-      await addDoc(collection(db, 'inventory'), {
-        userId: user.uid,
-        name: invName,
-        summary: invSummary,
-        qty: Number(invQty),
-        price: Number(invPrice),
-        createdAt: serverTimestamp()
-      });
-      alert("Estoque/Serviço salvo com sucesso!");
-      setShowInventoryModal(false);
-      setInvName(''); setInvSummary(''); setInvQty(''); setInvPrice('');
-    } catch (e) {
-      console.error(e);
-      alert("Erro ao salvar estoque.");
-    }
-  };
-
-  const handleSaveClient = async (showAlert = true) => {
-    try {
-      await addDoc(collection(db, 'clients'), {
-        userId: user.uid,
-        name: cliName,
-        socialName: cliSocial,
-        whatsapp: cliWhatsapp,
-        item: cliItem,
-        createdAt: serverTimestamp()
-      });
-      if (showAlert) {
-        alert("Cliente salvo no sistema!"); 
-      }
-      setShowClientModal(false);
-      if (showAlert) {
-        setCliName(''); setCliSocial(''); setCliWhatsapp(''); setCliItem('');
-      }
-    } catch (e) {
-      console.error(e);
-      if (showAlert) alert("Erro ao salvar cliente.");
-    }
-  };
-
   // --- RENDERS DE TELAS INTEIRAS (Ações Principais) ---
 
   if (activeAction === 'audio') {
@@ -362,17 +295,16 @@ export default function Dashboard({ userData, user, logout }: any) {
     );
   }
 
+  if (activeAction === 'inventory') {
+    return <InventoryManager user={user} onBack={() => setActiveAction(null)} />;
+  }
+
+  if (activeAction === 'clients') {
+    return <ClientManager user={user} onBack={() => setActiveAction(null)} />;
+  }
+
   if (activeAction === 'reports') {
-    return (
-      <div className="min-h-screen bg-background text-foreground flex flex-col p-6 sm:p-10 max-w-6xl mx-auto items-center justify-center">
-         <div className="w-24 h-24 bg-card rounded-[24px] flex items-center justify-center mb-8 border border-border/50 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
-            <BarChart3 className="text-primary w-12 h-12" />
-         </div>
-         <h2 className="text-3xl font-bold mb-3 tracking-tight">Relatórios Detalhados</h2>
-         <p className="text-muted-foreground mb-10 text-center max-w-md text-lg">Em breve um dashboard completo com gráficos de faturamento, vendas consolidadas e controle financeiro.</p>
-         <Button variant="outline" size="lg" className="h-14 px-8" onClick={() => setActiveAction(null)}>Voltar ao Início</Button>
-      </div>
-    );
+    return <ReportsDashboard user={user} onBack={() => setActiveAction(null)} />;
   }
 
   // --- DASHBOARD PRINCIPAL ---
@@ -429,8 +361,8 @@ export default function Dashboard({ userData, user, logout }: any) {
               </div>
               <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-primary"><PackagePlus size={20}/></div>
             </div>
-            <Button variant="secondary" className="mt-auto w-full font-semibold border border-primary/20 text-primary hover:bg-primary/10 relative z-10" onClick={() => setShowInventoryModal(true)}>
-              + Adicionar Novo
+            <Button variant="secondary" className="mt-auto w-full font-semibold border border-primary/20 text-primary hover:bg-primary/10 relative z-10" onClick={() => setActiveAction('inventory')}>
+              Gerenciar Estoque
             </Button>
           </div>
           
@@ -443,8 +375,8 @@ export default function Dashboard({ userData, user, logout }: any) {
               </div>
               <div className="w-10 h-10 bg-[#FFB800]/10 rounded-full flex items-center justify-center text-[#FFB800]"><UserPlus size={20}/></div>
             </div>
-            <Button variant="secondary" className="mt-auto w-full font-semibold border border-[#FFB800]/20 text-[#FFB800] hover:bg-[#FFB800]/10 relative z-10" onClick={() => setShowClientModal(true)}>
-              + Cadastrar Cliente
+            <Button variant="secondary" className="mt-auto w-full font-semibold border border-[#FFB800]/20 text-[#FFB800] hover:bg-[#FFB800]/10 relative z-10" onClick={() => setActiveAction('clients')}>
+              Gerenciar Clientes
             </Button>
           </div>
         </div>
@@ -465,83 +397,6 @@ export default function Dashboard({ userData, user, logout }: any) {
           Relatórios
         </button>
       </div>
-
-      {/* ====================================================================================================== */}
-      {/* MODAL: ADICIONAR ESTOQUE / SERVIÇO */}
-      {/* ====================================================================================================== */}
-      {showInventoryModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-card w-full max-w-md rounded-[24px] p-6 sm:p-8 border border-border/50 shadow-[0_20px_60px_rgba(0,0,0,0.8)] relative animate-in fade-in zoom-in-95 duration-200">
-            <button onClick={() => setShowInventoryModal(false)} className="absolute top-5 right-5 text-muted-foreground hover:text-foreground bg-secondary rounded-full p-1"><X size={20}/></button>
-            <h3 className="text-xl sm:text-2xl font-bold mb-6 flex items-center gap-3"><PackagePlus className="text-primary"/> Adicionar Item</h3>
-            
-            <div className="flex flex-col gap-5">
-              <div>
-                <label className="text-sm font-medium mb-1.5 block text-muted-foreground">Nome do Produto ou Serviço</label>
-                <Input placeholder="Ex: Camiseta Básica, Consulta..." value={invName} onChange={e => setInvName(e.target.value)} className="h-12 bg-secondary/50 border-border" />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1.5 block text-muted-foreground">Resumo/Descrição</label>
-                <Input placeholder="Cor, tamanho ou detalhes técnicos" value={invSummary} onChange={e => setInvSummary(e.target.value)} className="h-12 bg-secondary/50 border-border" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium mb-1.5 block text-muted-foreground">Quantidade</label>
-                  <Input type="number" placeholder="Ex: 50" value={invQty} onChange={e => setInvQty(e.target.value)} className="h-12 bg-secondary/50 border-border" />
-                </div>
-                <div>
-                  <label className="text-sm font-medium mb-1.5 block text-muted-foreground">Preço (R$)</label>
-                  <Input type="number" placeholder="Ex: 89.90" value={invPrice} onChange={e => setInvPrice(e.target.value)} className="h-12 bg-secondary/50 border-border" />
-                </div>
-              </div>
-              <Button size="lg" className="w-full h-12 mt-2 text-lg font-semibold shadow-md" onClick={handleSaveInventory}>
-                💾 Salvar Estoque
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ====================================================================================================== */}
-      {/* MODAL: ADICIONAR CLIENTE VIP */}
-      {/* ====================================================================================================== */}
-      {showClientModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-card w-full max-w-md rounded-[24px] p-6 sm:p-8 border border-[#FFB800]/30 shadow-[0_20px_60px_rgba(255,184,0,0.1)] relative animate-in fade-in zoom-in-95 duration-200">
-            <button onClick={() => setShowClientModal(false)} className="absolute top-5 right-5 text-muted-foreground hover:text-foreground bg-secondary rounded-full p-1"><X size={20}/></button>
-            <h3 className="text-xl sm:text-2xl font-bold mb-6 flex items-center gap-3 text-[#FFB800]"><UserPlus className="text-[#FFB800]"/> Novo Cliente</h3>
-            
-            <div className="flex flex-col gap-4">
-              <div>
-                <label className="text-sm font-medium mb-1.5 block text-muted-foreground">Nome Completo</label>
-                <Input placeholder="Ex: Maria Silvia de Souza" value={cliName} onChange={e => setCliName(e.target.value)} className="h-12 bg-secondary/50 border-border focus-visible:ring-[#FFB800]" />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1.5 block text-muted-foreground">Nome Social / Como gosta de ser chamado</label>
-                <Input placeholder="Ex: Mary" value={cliSocial} onChange={e => setCliSocial(e.target.value)} className="h-12 bg-secondary/50 border-border focus-visible:ring-[#FFB800]" />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1.5 block text-muted-foreground">Nº WhatsApp</label>
-                <Input placeholder="Ex: (11) 98888-7777" type="tel" value={cliWhatsapp} onChange={e => setCliWhatsapp(e.target.value)} className="h-12 bg-secondary/50 border-border focus-visible:ring-[#FFB800]" />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1.5 block text-muted-foreground">Item/Serviço Contratado Mais Frequente</label>
-                <Input placeholder="Ex: Unhas de Gel, Bolo de Pote" value={cliItem} onChange={e => setCliItem(e.target.value)} className="h-12 bg-secondary/50 border-border focus-visible:ring-[#FFB800]" />
-              </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
-                <Button variant="outline" size="lg" className="w-full border-border h-12" onClick={() => handleSaveClient(true)}>
-                  Salvar Apenas
-                </Button>
-                <Button size="lg" className="w-full h-12 bg-[#FFB800] hover:bg-[#E5A600] text-black font-bold border-0" onClick={handleCallClient}>
-                  <Phone className="w-4 h-4 mr-2" /> Salvar & Chamar
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }
