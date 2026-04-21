@@ -6,7 +6,7 @@ const getApiKey = () => {
   return apiKey;
 };
 
-const MODEL_NAME = 'gemini-2.5-flash';
+const MODEL_NAME = 'gemini-1.5-flash';
 
 export async function processAudioSale(audioBlob: Blob): Promise<any> {
     const apiKey = getApiKey();

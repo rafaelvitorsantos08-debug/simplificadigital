@@ -8,6 +8,7 @@ import { collection, addDoc, serverTimestamp, query, where, getDocs, updateDoc, 
 import InventoryManager from './InventoryManager';
 import ClientManager from './ClientManager';
 import ReportsDashboard from './ReportsDashboard';
+import QRScanner from './QRScanner';
 
 export default function Dashboard({ userData, user, logout, updateUserData }: any) {
   const [activeAction, setActiveAction] = useState<string | null>(null);
@@ -19,80 +20,61 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
   // Dashboard Sales State (Simulated for this session)
   const [todayTotal, setTodayTotal] = useState(0);
 
-  // Referências para Mídia
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  
-  const [photoData, setPhotoData] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
-  // 1. Efeito da Câmera
-  useEffect(() => {
-    if (activeAction === 'photo' && !photoData) {
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-        .then((s) => {
-          streamRef.current = s;
-          if (videoRef.current) {
-            videoRef.current.srcObject = s;
-          }
-        })
-        .catch(err => {
-          console.error("Erro ao acessar câmera:", err);
-          alert("Permissão de câmera negada ou dispositivo não encontrado.");
-          setActiveAction(null);
-        });
-    }
-
-    return () => {
-      // Limpar a câmera vigorosamente
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(t => t.stop());
-        streamRef.current = null;
-      }
-    };
-  }, [activeAction, photoData]);
-
   // Forçar fechamento e limpeza de qualquer mídia
   const closeAction = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
-    }
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
     }
     setActiveAction(null);
-    setPhotoData(null);
     setSaleResult(null);
     setIsProcessing(false);
     setIsRecording(false);
   };
 
-  const takePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
-      if (video.readyState !== 4) { // HAVE_ENOUGH_DATA
-        alert('Câmera ainda está carregando, por favor aguarde um instante...');
-        return;
-      }
-      const canvas = canvasRef.current;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg');
-        setPhotoData(dataUrl);
-        // Já desliga o stream pra poupar a bateria e não dar tela preta depois
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach(t => t.stop());
-          streamRef.current = null;
+  const handleQRScan = async (decodedText: string) => {
+    // Process the scanned QR code
+    setIsProcessing(true);
+    try {
+      // Find the product in inventory based on the QR code text
+      const q = query(collection(db, 'inventory'), where('userId', '==', user.uid));
+      const snapshot = await getDocs(q);
+      let targetProduct: any = null;
+      const searchName = decodedText.toLowerCase();
+
+      snapshot.forEach(d => {
+        const invName = (d.data().name || '').toLowerCase();
+        if (invName === searchName || invName.includes(searchName) || searchName.includes(invName)) {
+           targetProduct = { id: d.id, ...d.data() };
         }
+      });
+
+      let saleData;
+      if (targetProduct) {
+         saleData = {
+           produto: targetProduct.name,
+           valor: Number(targetProduct.price),
+           pagamento: 'Via QR Code Scanner'
+         };
+      } else {
+         saleData = {
+           produto: decodedText,
+           valor: 0,
+           pagamento: 'Via QR Code Scanner (Não encontrado)'
+         };
       }
+      
+      setSaleResult(saleData);
+      await saveSaleToDB(saleData);
+    } catch(e) {
+      console.error(e);
+      alert("Erro ao processar código QR.");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -158,20 +140,6 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
 
     } catch(e) {
       console.error("Erro ao salvar venda/estoque:", e);
-    }
-  };
-
-  const processPhoto = async () => {
-    if (!photoData) return;
-    try {
-      setIsProcessing(true);
-      const data = await processPhotoSale(photoData);
-      setSaleResult(data);
-      await saveSaleToDB(data);
-    } catch (e: any) {
-      alert("Erro na IA: " + e.message);
-    } finally {
-      setIsProcessing(false);
     }
   };
 
@@ -287,41 +255,17 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
     );
   }
 
-  if (activeAction === 'photo') {
+  if (activeAction === 'scanner') {
      return (
       <div className="min-h-screen bg-background text-foreground flex flex-col p-6 sm:p-10 max-w-6xl mx-auto items-center justify-center">
-         <h2 className="text-2xl font-bold mb-6">Capturar Recibo ou Produto</h2>
-         <div className="w-full max-w-sm aspect-[3/4] bg-secondary border-2 border-border rounded-[24px] flex items-center justify-center mb-8 overflow-hidden relative shadow-lg">
-            {!photoData ? (
-               <video ref={videoRef} autoPlay playsInline className="absolute w-full h-full object-cover" />
-            ) : (
-               <img src={photoData} alt="Foto tirada" className="absolute w-full h-full object-cover" />
-            )}
-            {/* Oculto: fallback canvas para capturar o frame */}
-            <canvas ref={canvasRef} className="hidden" />
-         </div>
+         <h2 className="text-2xl font-bold mb-6">QR Code Scanner</h2>
+         <p className="text-muted-foreground mb-8 text-center max-w-sm">Escaneie o QR Code do produto para registrar a venda automaticamente e abater o estoque.</p>
          
-         <div className="flex gap-4">
-           {photoData ? (
-             <>
-               <Button variant="outline" size="lg" className="h-14 px-6" onClick={() => setPhotoData(null)}>
-                 <RefreshCcw className="w-5 h-5 mr-2" /> Tentar Novamente
-               </Button>
-               <Button size="lg" className="h-14 px-8 shadow-[0_0_15px_rgba(0,255,102,0.4)]" onClick={processPhoto}>
-                 Extrair Dados
-               </Button>
-             </>
-           ) : (
-             <>
-               <Button variant="outline" size="lg" className="h-14 px-6" onClick={() => setActiveAction(null)}>Voltar</Button>
-               <Button size="lg" className="h-14 px-8 shadow-[0_0_15px_rgba(0,255,102,0.4)]" onClick={takePhoto}>
-                 <Camera className="mr-2" /> Tirar Foto
-               </Button>
-             </>
-           )}
+         <div className="w-full max-w-sm flex-1 flex flex-col items-center justify-center">
+             <QRScanner onScan={handleQRScan} onClose={closeAction} />
          </div>
       </div>
-    );
+     );
   }
 
   if (activeAction === 'inventory') {
@@ -408,7 +352,7 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
                <div className="text-sm font-medium mt-4">
                  {userData?.dailyGoal && todayTotal >= userData.dailyGoal 
                    ? <span className="text-primary font-bold">Meta atingida! Parabéns! 🎉</span>
-                   : <span className="text-muted-foreground">Faltam R$ {(userData?.dailyGoal - todayTotal).toFixed(2)} para bater a meta.</span>
+                   : <span className="text-muted-foreground">Faltam R$ {((userData?.dailyGoal || 0) - todayTotal).toFixed(2)} para bater a meta.</span>
                  }
                </div>
              )}
@@ -448,18 +392,18 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
 
       </div>
 
-      {/* BARRA DE AÇÕES INFERIOR REFORMULADA MANTENDO O AUDIO EM DESTAQUE E FOTO DO OUTRO LADO */}
+      {/* BARRA DE AÇÕES INFERIOR REFORMULADA MANTENDO O AUDIO EM DESTAQUE E SCANNER DO OUTRO LADO */}
       <div className="flex flex-row justify-center items-end gap-3 sm:gap-4 w-full mt-8 mb-4 z-10 h-[100px] sm:h-[130px]">
-        <button onClick={() => setActiveAction('photo')} className="flex-1 max-w-[160px] h-[80px] sm:h-[100px] rounded-2xl sm:rounded-3xl bg-card text-foreground border border-border flex flex-col items-center justify-center gap-1 sm:gap-2 font-semibold text-[13px] sm:text-[16px] cursor-pointer transition-all hover:-translate-y-1 hover:border-primary/50 hover:bg-secondary/50 shadow-md active:scale-95">
-          <Camera size={20} strokeWidth={2.5} className="text-foreground/70" /> Foto
+        <button onClick={() => setActiveAction('scanner')} className="flex-1 max-w-[160px] h-[80px] sm:h-[100px] rounded-2xl sm:rounded-3xl bg-card text-foreground border border-border flex flex-col items-center justify-center gap-1 sm:gap-2 font-semibold text-[13px] sm:text-[14px] cursor-pointer transition-all hover:-translate-y-1 hover:border-primary/50 hover:bg-secondary/50 shadow-md active:scale-95 text-center leading-tight">
+          <Camera size={20} strokeWidth={2.5} className="text-foreground/70" /> Registrar <br/>por Scanner
         </button>
         
         {/* BIG CENTER AUDIO BUTTON */}
-        <button onClick={() => setActiveAction('audio')} className="w-[100px] h-[100px] sm:w-[130px] sm:h-[130px] rounded-full bg-primary text-primary-foreground flex flex-col items-center justify-center gap-1 sm:gap-2 font-bold text-[14px] sm:text-[18px] cursor-pointer transition-all hover:-translate-y-2 shadow-[0_4px_20px_rgba(0,255,102,0.4)] hover:shadow-[0_8px_40px_rgba(0,255,102,0.6)] active:scale-95 mb-4 sm:mb-6">
-          <Mic size={36} strokeWidth={2.5} className="sm:w-[48px] sm:h-[48px]" /> Áudio
+        <button onClick={() => setActiveAction('audio')} className="w-[120px] h-[120px] sm:w-[150px] sm:h-[150px] rounded-full bg-primary text-primary-foreground flex flex-col items-center justify-center gap-1 sm:gap-2 font-bold text-[14px] sm:text-[16px] cursor-pointer transition-all hover:-translate-y-2 shadow-[0_4px_20px_rgba(0,255,102,0.4)] hover:shadow-[0_8px_40px_rgba(0,255,102,0.6)] active:scale-95 mb-4 sm:mb-6 text-center leading-tight">
+          <Mic size={36} strokeWidth={2.5} className="sm:w-[48px] sm:h-[48px]" /> Registrar Venda<br/>por Áudio
         </button>
 
-        <button onClick={() => setActiveAction('reports')} className="flex-1 max-w-[160px] h-[80px] sm:h-[100px] rounded-2xl sm:rounded-3xl bg-card text-foreground border border-border flex flex-col items-center justify-center gap-1 sm:gap-2 font-semibold text-[13px] sm:text-[16px] cursor-pointer transition-all hover:-translate-y-1 hover:border-primary/50 hover:bg-secondary/50 shadow-md active:scale-95">
+        <button onClick={() => setActiveAction('reports')} className="flex-1 max-w-[160px] h-[80px] sm:h-[100px] rounded-2xl sm:rounded-3xl bg-card text-foreground border border-border flex flex-col items-center justify-center gap-1 sm:gap-2 font-semibold text-[13px] sm:text-[16px] cursor-pointer transition-all hover:-translate-y-1 hover:border-primary/50 hover:bg-secondary/50 shadow-md active:scale-95 text-center leading-tight">
           <BarChart3 size={20} strokeWidth={2.5} className="text-foreground/70" /> Relatórios
         </button>
       </div>
