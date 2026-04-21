@@ -50,7 +50,7 @@ function MainApp() {
   }
 
   // Dashboard / App Principal
-  return <Dashboard userData={userData} user={user} logout={logout} />;
+  return <Dashboard userData={userData} user={user} logout={logout} updateUserData={updateUserData} />;
 }
 
 export default function App() {

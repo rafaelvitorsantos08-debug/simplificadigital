@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Camera, Mic, BarChart3, TrendingUp, PackagePlus, UserPlus, X, Phone, StopCircle, RefreshCcw, Loader2, CheckCircle2 } from 'lucide-react';
+import { Camera, Mic, BarChart3, TrendingUp, PackagePlus, UserPlus, X, Phone, StopCircle, RefreshCcw, Loader2, CheckCircle2, Pencil, Check } from 'lucide-react';
 import { Button } from './ui/button';
 import { processAudioSale, processPhotoSale } from '../services/geminiService';
 import { db } from '../lib/firebase';
@@ -9,10 +9,12 @@ import InventoryManager from './InventoryManager';
 import ClientManager from './ClientManager';
 import ReportsDashboard from './ReportsDashboard';
 
-export default function Dashboard({ userData, user, logout }: any) {
+export default function Dashboard({ userData, user, logout, updateUserData }: any) {
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [saleResult, setSaleResult] = useState<any>(null);
+  const [isEditingGoal, setIsEditingGoal] = useState(false);
+  const [tempGoal, setTempGoal] = useState('');
   
   // Dashboard Sales State (Simulated for this session)
   const [todayTotal, setTodayTotal] = useState(0);
@@ -366,14 +368,50 @@ export default function Dashboard({ userData, user, logout }: any) {
           
           <div className="flex items-center text-primary text-sm sm:text-lg font-medium mb-8 bg-primary/5 w-fit px-4 py-2 rounded-xl border border-primary/10">
              <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-             Meta do dia: R$ {userData?.dailyGoal ? (userData.dailyGoal).toFixed(2) : '0.00'}
+             {isEditingGoal ? (
+               <div className="flex items-center gap-2">
+                 <span className="whitespace-nowrap">Meta: R$</span>
+                 <input 
+                   type="number" 
+                   autoFocus
+                   value={tempGoal} 
+                   onChange={(e) => setTempGoal(e.target.value)} 
+                   className="w-20 bg-background text-foreground border border-primary/30 rounded px-1 text-sm outline-none"
+                 />
+                 <button onClick={async () => {
+                   if(updateUserData) {
+                     await updateUserData({ dailyGoal: Number(tempGoal) || 0 });
+                   }
+                   setIsEditingGoal(false);
+                 }} className="p-1 hover:bg-primary/20 rounded">
+                   <Check size={16} />
+                 </button>
+               </div>
+             ) : (
+               <div className="flex items-center gap-2 cursor-pointer group" onClick={() => { setTempGoal(String(userData?.dailyGoal || 0)); setIsEditingGoal(true); }}>
+                 <span className="whitespace-nowrap">Meta do dia: R$ {userData?.dailyGoal ? (userData.dailyGoal).toFixed(2) : '0.00'}</span>
+                 <Pencil size={14} className="opacity-50 group-hover:opacity-100 transition-opacity" />
+               </div>
+             )}
           </div>
           
           <div className="mt-auto">
-             <div className="w-full bg-secondary h-3 rounded-full mb-2 overflow-hidden shadow-inner">
-                <div className="bg-primary h-full w-[2%] rounded-full shadow-[0_0_10px_rgba(0,255,102,0.5)]"></div>
+             <div className="w-full bg-secondary h-3 rounded-full mb-2 overflow-hidden shadow-inner relative">
+                <div 
+                  className="bg-primary h-full rounded-full shadow-[0_0_10px_rgba(0,255,102,0.5)] transition-all duration-1000 ease-out absolute left-0 top-0"
+                  style={{ width: `${Math.min(100, userData?.dailyGoal ? (todayTotal / userData.dailyGoal) * 100 : 0)}%` }}
+                ></div>
              </div>
-            <div className="text-sm text-muted-foreground max-w-md mt-4">Nenhuma venda registrada ainda. Que tal começar agora?</div>
+             {todayTotal === 0 ? (
+               <div className="text-sm text-muted-foreground max-w-md mt-4">Nenhuma venda registrada ainda. Que tal começar agora?</div>
+             ) : (
+               <div className="text-sm font-medium mt-4">
+                 {userData?.dailyGoal && todayTotal >= userData.dailyGoal 
+                   ? <span className="text-primary font-bold">Meta atingida! Parabéns! 🎉</span>
+                   : <span className="text-muted-foreground">Faltam R$ {(userData?.dailyGoal - todayTotal).toFixed(2)} para bater a meta.</span>
+                 }
+               </div>
+             )}
           </div>
         </div>
         
@@ -410,18 +448,19 @@ export default function Dashboard({ userData, user, logout }: any) {
 
       </div>
 
-      {/* BARRA DE AÇÕES INFERIOR */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 w-full mt-8 mb-4 z-10">
-        <button onClick={() => setActiveAction('photo')} className="col-span-2 lg:col-span-1 h-[90px] sm:h-[120px] rounded-[20px] sm:rounded-[24px] bg-primary text-primary-foreground flex flex-col items-center justify-center gap-2 sm:gap-3 font-bold text-[14px] sm:text-[18px] cursor-pointer transition-all hover:-translate-y-1 shadow-[0_4px_20px_rgba(0,255,102,0.25)] hover:shadow-[0_8px_30px_rgba(0,255,102,0.4)] active:scale-95 active:shadow-none">
-          <Camera size={24} strokeWidth={2.5} /> Lançar por Foto
+      {/* BARRA DE AÇÕES INFERIOR REFORMULADA MANTENDO O AUDIO EM DESTAQUE E FOTO DO OUTRO LADO */}
+      <div className="flex flex-row justify-center items-end gap-3 sm:gap-4 w-full mt-8 mb-4 z-10 h-[100px] sm:h-[130px]">
+        <button onClick={() => setActiveAction('photo')} className="flex-1 max-w-[160px] h-[80px] sm:h-[100px] rounded-2xl sm:rounded-3xl bg-card text-foreground border border-border flex flex-col items-center justify-center gap-1 sm:gap-2 font-semibold text-[13px] sm:text-[16px] cursor-pointer transition-all hover:-translate-y-1 hover:border-primary/50 hover:bg-secondary/50 shadow-md active:scale-95">
+          <Camera size={20} strokeWidth={2.5} className="text-foreground/70" /> Foto
         </button>
-        <button onClick={() => setActiveAction('audio')} className="h-[90px] sm:h-[120px] rounded-[20px] sm:rounded-[24px] bg-card text-foreground border border-border flex flex-col items-center justify-center gap-2 sm:gap-3 font-semibold text-[14px] sm:text-[18px] cursor-pointer transition-all hover:-translate-y-1 hover:border-primary/50 hover:bg-secondary/50 shadow-md active:scale-95">
-          <div className="w-[36px] h-[36px] sm:w-[48px] sm:h-[48px] rounded-full bg-secondary/80 flex items-center justify-center text-primary border border-primary/20"><Mic size={20} strokeWidth={2.5} /></div>
-          Registrar via Áudio
+        
+        {/* BIG CENTER AUDIO BUTTON */}
+        <button onClick={() => setActiveAction('audio')} className="w-[100px] h-[100px] sm:w-[130px] sm:h-[130px] rounded-full bg-primary text-primary-foreground flex flex-col items-center justify-center gap-1 sm:gap-2 font-bold text-[14px] sm:text-[18px] cursor-pointer transition-all hover:-translate-y-2 shadow-[0_4px_20px_rgba(0,255,102,0.4)] hover:shadow-[0_8px_40px_rgba(0,255,102,0.6)] active:scale-95 mb-4 sm:mb-6">
+          <Mic size={36} strokeWidth={2.5} className="sm:w-[48px] sm:h-[48px]" /> Áudio
         </button>
-        <button onClick={() => setActiveAction('reports')} className="h-[90px] sm:h-[120px] rounded-[20px] sm:rounded-[24px] bg-card text-foreground border border-border flex flex-col items-center justify-center gap-2 sm:gap-3 font-semibold text-[14px] sm:text-[18px] cursor-pointer transition-all hover:-translate-y-1 hover:border-primary/50 hover:bg-secondary/50 shadow-md active:scale-95">
-          <div className="w-[36px] h-[36px] sm:w-[48px] sm:h-[48px] rounded-full bg-secondary/80 flex items-center justify-center text-foreground/70 border border-border"><BarChart3 size={20} strokeWidth={2.5} /></div>
-          Relatórios
+
+        <button onClick={() => setActiveAction('reports')} className="flex-1 max-w-[160px] h-[80px] sm:h-[100px] rounded-2xl sm:rounded-3xl bg-card text-foreground border border-border flex flex-col items-center justify-center gap-1 sm:gap-2 font-semibold text-[13px] sm:text-[16px] cursor-pointer transition-all hover:-translate-y-1 hover:border-primary/50 hover:bg-secondary/50 shadow-md active:scale-95">
+          <BarChart3 size={20} strokeWidth={2.5} className="text-foreground/70" /> Relatórios
         </button>
       </div>
     </div>
