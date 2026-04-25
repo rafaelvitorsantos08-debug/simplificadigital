@@ -175,7 +175,7 @@ export default function ReportsDashboard({ user, onBack }: any) {
                 <div className="flex items-center justify-between mb-4 relative z-10">
                   <div className="flex items-center gap-2 text-primary">
                     <div className="p-1.5 bg-primary/10 rounded-md"><TrendingUp size={16} /></div>
-                    <h3 className="font-semibold text-sm uppercase tracking-wide">Lucro Líquido</h3>
+                    <h3 className="font-semibold text-sm uppercase tracking-wide">Lucro</h3>
                   </div>
                   {totalCost > 0 && (
                     <span className="text-[10px] font-bold bg-primary/20 text-primary px-2 py-0.5 rounded border border-primary/30">
@@ -250,7 +250,7 @@ export default function ReportsDashboard({ user, onBack }: any) {
                                    </span>
                                  </div>
                                  <div className="text-right">
-                                   <p className="text-[10px] text-primary uppercase font-bold">Lucro Líquido</p>
+                                   <p className="text-[10px] text-primary uppercase font-bold">Lucro</p>
                                    <p className="font-bold text-xl text-primary">R$ {stat.lucro.toFixed(2)}</p>
                                  </div>
                               </div>
@@ -289,7 +289,7 @@ export default function ReportsDashboard({ user, onBack }: any) {
                                    </span>
                                  </div>
                                  <div>
-                                   <p className="text-[10px] text-primary uppercase font-bold">Lucro Líquido</p>
+                                   <p className="text-[10px] text-primary uppercase font-bold">Lucro</p>
                                    <p className="font-bold text-xl text-primary">R$ {stat.lucro.toFixed(2)}</p>
                                  </div>
                               </div>
