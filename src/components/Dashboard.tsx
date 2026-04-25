@@ -104,19 +104,13 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
 
   const saveSaleToDB = async (saleData: any) => {
     try {
-      await addDoc(collection(db, 'sales'), {
-        ...saleData,
-        userId: user.uid,
-        createdAt: serverTimestamp()
-      });
-      // Fetch again to ensure accuracy or just add to state
-      setTodayTotal(prev => prev + Number(saleData.valor || 0));
+      let costPrice = 0;
+      let targetDoc: any = null;
 
-      // Diminuir do inventário automaticamente
+      // Find in inventory first
       if (saleData.produto) {
         const q = query(collection(db, 'inventory'), where('userId', '==', user.uid));
         const snapshot = await getDocs(q);
-        let targetDoc: any = null;
         const searchName = saleData.produto.toLowerCase();
         
         snapshot.forEach(d => {
@@ -129,13 +123,29 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
         });
 
         if (targetDoc) {
+          costPrice = targetDoc.data().costPrice || 0;
+        }
+      }
+
+      // Record sale
+      await addDoc(collection(db, 'sales'), {
+        ...saleData,
+        custo: Number(costPrice),
+        lucro: Number(saleData.valor || 0) - Number(costPrice),
+        userId: user.uid,
+        createdAt: serverTimestamp()
+      });
+      // Fetch again to ensure accuracy or just add to state
+      setTodayTotal(prev => prev + Number(saleData.valor || 0));
+
+      // Decrease from inventory
+      if (targetDoc) {
           const currentQty = targetDoc.data().qty || 0;
           if (currentQty > 0) {
             await updateDoc(doc(db, 'inventory', targetDoc.id), {
               qty: currentQty - 1
             });
           }
-        }
       }
 
     } catch(e) {

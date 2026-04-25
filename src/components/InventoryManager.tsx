@@ -16,6 +16,7 @@ export default function InventoryManager({ user, onBack }: any) {
   const [summary, setSummary] = useState('');
   const [qty, setQty] = useState('');
   const [price, setPrice] = useState('');
+  const [costPrice, setCostPrice] = useState('');
 
   const fetchItems = async () => {
     setLoading(true);
@@ -37,13 +38,13 @@ export default function InventoryManager({ user, onBack }: any) {
 
   const openAddModal = () => {
     setEditingId(null);
-    setName(''); setSummary(''); setQty(''); setPrice('');
+    setName(''); setSummary(''); setQty(''); setPrice(''); setCostPrice('');
     setShowModal(true);
   };
 
   const openEditModal = (item: any) => {
     setEditingId(item.id);
-    setName(item.name); setSummary(item.summary); setQty(item.qty); setPrice(item.price);
+    setName(item.name); setSummary(item.summary); setQty(item.qty); setPrice(item.price); setCostPrice(item.costPrice || '');
     setShowModal(true);
   };
 
@@ -55,6 +56,7 @@ export default function InventoryManager({ user, onBack }: any) {
       summary,
       qty: Number(qty),
       price: Number(price),
+      costPrice: Number(costPrice) || 0,
       updatedAt: serverTimestamp()
     };
 
@@ -113,9 +115,12 @@ export default function InventoryManager({ user, onBack }: any) {
                 </div>
                 <h3 className="font-bold text-lg max-w-[85%]">{item.name}</h3>
                 <p className="text-muted-foreground text-sm mb-3 h-10 overflow-hidden">{item.summary || "Sem descrição"}</p>
-                <div className="flex justify-between mt-auto pt-3 border-t border-border">
-                  <span className="font-mono text-sm bg-secondary px-2 py-1 rounded">Qtd: {item.qty}</span>
-                  <span className="font-bold text-primary">R$ {Number(item.price).toFixed(2)}</span>
+                <div className="flex justify-between mt-auto pt-3 border-t border-border items-end">
+                  <span className="font-mono text-sm bg-secondary px-2 py-1 rounded h-fit">Qtd: {item.qty}</span>
+                  <div className="text-right">
+                    <span className="text-[10px] text-muted-foreground block">Custo: R$ {Number(item.costPrice || 0).toFixed(2)}</span>
+                    <span className="font-bold text-primary">R$ {Number(item.price).toFixed(2)}</span>
+                  </div>
                 </div>
               </div>
             ))}
@@ -140,13 +145,17 @@ export default function InventoryManager({ user, onBack }: any) {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium mb-1.5 block text-muted-foreground">Quantidade</label>
-                  <Input type="number" placeholder="Ex: 50" value={qty} onChange={e => setQty(e.target.value)} className="h-12 bg-secondary/50 border-border" />
+                  <label className="text-sm font-medium mb-1.5 block text-muted-foreground">Preço de Custo (R$)</label>
+                  <Input type="number" placeholder="Ex: 40.00" value={costPrice} onChange={e => setCostPrice(e.target.value)} className="h-12 bg-secondary/50 border-border" />
                 </div>
                 <div>
-                  <label className="text-sm font-medium mb-1.5 block text-muted-foreground">Preço (R$)</label>
+                  <label className="text-sm font-medium mb-1.5 block text-muted-foreground">Preço de Venda (R$)</label>
                   <Input type="number" placeholder="Ex: 89.90" value={price} onChange={e => setPrice(e.target.value)} className="h-12 bg-secondary/50 border-border" />
                 </div>
+              </div>
+              <div>
+                 <label className="text-sm font-medium mb-1.5 block text-muted-foreground">Quantidade</label>
+                 <Input type="number" placeholder="Ex: 50" value={qty} onChange={e => setQty(e.target.value)} className="h-12 bg-secondary/50 border-border" />
               </div>
               <Button size="lg" className="w-full h-12 mt-2 text-lg font-semibold shadow-md" onClick={handleSave}>
                 💾 Salvar Estoque
