@@ -13,7 +13,8 @@ export default function ReportsDashboard({ user, onBack }: any) {
 
   const [todayRevenue, setTodayRevenue] = useState(0);
   const [monthlyStats, setMonthlyStats] = useState<{month: string, faturamento: number, custo: number, lucro: number}[]>([]);
-  const [activeTab, setActiveTab] = useState<'daily'|'monthly'|'all'>('daily');
+  const [productStats, setProductStats] = useState<{produto: string, faturamento: number, custo: number, lucro: number, quantidade: number}[]>([]);
+  const [activeTab, setActiveTab] = useState<'daily'|'monthly'|'all'|'products'>('daily');
 
   const fetchSales = async () => {
     setLoading(true);
@@ -43,19 +44,33 @@ export default function ReportsDashboard({ user, onBack }: any) {
 
       // Process Monthly
       const monthlyMap: Record<string, { faturamento: number, custo: number, lucro: number }> = {};
+      const productMap: Record<string, { faturamento: number, custo: number, lucro: number, quantidade: number }> = {};
+
       fetched.forEach((s: any) => {
-        if (!s.createdAt) return;
-        const d = s.createdAt.toDate();
-        const monthKey = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(d);
-        // capitalize first letter
-        const formattedKey = monthKey.charAt(0).toUpperCase() + monthKey.slice(1);
-        
-        if (!monthlyMap[formattedKey]) {
-           monthlyMap[formattedKey] = { faturamento: 0, custo: 0, lucro: 0 };
+        // --- Process Monthly ---
+        if (s.createdAt) {
+           const d = s.createdAt.toDate();
+           const monthKey = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(d);
+           // capitalize first letter
+           const formattedKey = monthKey.charAt(0).toUpperCase() + monthKey.slice(1);
+           
+           if (!monthlyMap[formattedKey]) {
+              monthlyMap[formattedKey] = { faturamento: 0, custo: 0, lucro: 0 };
+           }
+           monthlyMap[formattedKey].faturamento += Number(s.valor || 0);
+           monthlyMap[formattedKey].custo += Number(s.custo || 0);
+           monthlyMap[formattedKey].lucro += (Number(s.valor || 0) - Number(s.custo || 0));
         }
-        monthlyMap[formattedKey].faturamento += Number(s.valor || 0);
-        monthlyMap[formattedKey].custo += Number(s.custo || 0);
-        monthlyMap[formattedKey].lucro += (Number(s.valor || 0) - Number(s.custo || 0));
+
+        // --- Process Products ---
+        const prodName = s.produto ? String(s.produto).trim() : 'Item não identificado';
+        if (!productMap[prodName]) {
+           productMap[prodName] = { faturamento: 0, custo: 0, lucro: 0, quantidade: 0 };
+        }
+        productMap[prodName].faturamento += Number(s.valor || 0);
+        productMap[prodName].custo += Number(s.custo || 0);
+        productMap[prodName].lucro += (Number(s.valor || 0) - Number(s.custo || 0));
+        productMap[prodName].quantidade += 1;
       });
       
       const monthlyArr = Object.keys(monthlyMap).map(k => ({ 
@@ -65,6 +80,17 @@ export default function ReportsDashboard({ user, onBack }: any) {
         lucro: monthlyMap[k].lucro
       }));
       setMonthlyStats(monthlyArr);
+
+      const productArr = Object.keys(productMap)
+        .map(k => ({ 
+          produto: k, 
+          faturamento: productMap[k].faturamento,
+          custo: productMap[k].custo,
+          lucro: productMap[k].lucro,
+          quantidade: productMap[k].quantidade
+        }))
+        .sort((a, b) => b.lucro - a.lucro); // Ordenar por maior lucro
+      setProductStats(productArr);
 
     } catch (e) {
       console.error(e);
@@ -148,13 +174,19 @@ export default function ReportsDashboard({ user, onBack }: any) {
                  className={`flex-1 p-4 font-semibold text-sm transition-colors ${activeTab === 'monthly' ? 'border-b-2 border-primary text-primary bg-primary/5' : 'text-muted-foreground hover:bg-secondary/40'}`}
                  onClick={() => setActiveTab('monthly')}
                >
-                 Demonstrativo Mensal
+                 Mensal
+               </button>
+               <button 
+                 className={`flex-1 p-4 font-semibold text-sm transition-colors ${activeTab === 'products' ? 'border-b-2 border-primary text-primary bg-primary/5' : 'text-muted-foreground hover:bg-secondary/40'}`}
+                 onClick={() => setActiveTab('products')}
+               >
+                 Por Produto (Margem)
                </button>
                <button 
                  className={`flex-1 p-4 font-semibold text-sm transition-colors ${activeTab === 'all' ? 'border-b-2 border-primary text-primary bg-primary/5' : 'text-muted-foreground hover:bg-secondary/40'}`}
                  onClick={() => setActiveTab('all')}
                >
-                 Todas as Vendas
+                 Todas Vendas
                </button>
             </div>
 
@@ -179,6 +211,45 @@ export default function ReportsDashboard({ user, onBack }: any) {
                               <div className="text-right ml-auto sm:ml-0">
                                  <p className="text-[10px] text-primary uppercase font-bold">Lucro</p>
                                  <p className="font-bold text-xl text-primary">R$ {stat.lucro.toFixed(2)}</p>
+                              </div>
+                            </div>
+                         </div>
+                      ))
+                   )}
+                 </div>
+              ) : activeTab === 'products' ? (
+                 <div className="flex flex-col gap-3">
+                   {productStats.length === 0 ? (
+                      <p className="text-muted-foreground text-center py-10">Nenhuma venda registrada ainda.</p>
+                   ) : (
+                      productStats.map((stat, idx) => (
+                         <div key={idx} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-5 bg-secondary/30 rounded-xl border border-border gap-4">
+                            <div>
+                               <p className="font-bold text-lg">{stat.produto}</p>
+                               <span className="inline-block px-2.5 py-1 mt-2 text-[10px] font-bold uppercase tracking-wider border rounded-md bg-secondary text-muted-foreground">
+                                 Vendidos: {stat.quantidade} un.
+                               </span>
+                            </div>
+                            <div className="flex gap-4 sm:gap-8 w-full sm:w-auto mt-2 sm:mt-0">
+                              <div>
+                                 <p className="text-[10px] text-muted-foreground uppercase font-semibold">Custo Total</p>
+                                 <p className="text-sm text-destructive font-medium">R$ {stat.custo.toFixed(2)}</p>
+                              </div>
+                              <div>
+                                 <p className="text-[10px] text-muted-foreground uppercase font-semibold">Faturado</p>
+                                 <p className="text-sm font-medium">R$ {stat.faturamento.toFixed(2)}</p>
+                              </div>
+                              <div className="text-right ml-auto sm:ml-0 flex items-center gap-4">
+                                 <div>
+                                   <p className="text-[10px] text-primary uppercase font-bold text-left ml-1">Margem</p>
+                                   <span className="text-xs font-bold bg-primary/20 text-primary px-2 py-0.5 rounded border border-primary/30 mr-2">
+                                     {stat.custo > 0 ? ((stat.lucro / stat.custo) * 100).toFixed(1) : 100}%
+                                   </span>
+                                 </div>
+                                 <div>
+                                   <p className="text-[10px] text-primary uppercase font-bold">Lucro Líquido</p>
+                                   <p className="font-bold text-xl text-primary">R$ {stat.lucro.toFixed(2)}</p>
+                                 </div>
                               </div>
                             </div>
                          </div>
