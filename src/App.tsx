@@ -5,7 +5,7 @@ import { Sparkles, Loader2, LogIn, LogOut, Camera, Mic, BarChart3, TrendingUp } 
 import { Button } from '@/components/ui/button';
 
 function MainApp() {
-  const { user, userData, loading, error, clearError, loginWithGoogle, logout, updateUserData } = useAuth();
+  const { user, userData, loading, error, clearError, loginWithGoogle, loginWithGoogleRedirect, logout, updateUserData } = useAuth();
 
   if (loading) {
     return (
@@ -42,8 +42,12 @@ function MainApp() {
             </div>
           )}
 
-          <Button onClick={loginWithGoogle} size="lg" className="w-full h-14 text-lg font-medium shadow-primary/20 shadow-lg">
+          <Button onClick={loginWithGoogle} size="lg" className="w-full h-14 text-lg font-medium shadow-primary/20 shadow-lg mb-3">
             <LogIn className="mr-2 w-5 h-5" /> Entrar com Google
+          </Button>
+          
+          <Button onClick={loginWithGoogleRedirect} variant="outline" size="sm" className="w-full text-muted-foreground hover:bg-secondary/20">
+            Dificuldade no login? Entrar via aba na página
           </Button>
         </div>
       </div>

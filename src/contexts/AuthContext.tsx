@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from 'firebase/auth';
+import { User, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut, onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
@@ -20,6 +20,7 @@ interface AuthContextType {
   error: string | null;
   clearError: () => void;
   loginWithGoogle: () => Promise<void>;
+  loginWithGoogleRedirect: () => Promise<void>;
   logout: () => Promise<void>;
   updateUserData: (data: Partial<UserData>) => Promise<void>;
 }
@@ -33,6 +34,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Verificar se voltou de um redirect de login
+    getRedirectResult(auth).catch((err: any) => {
+      console.error("Erro no redirecionamento do Google:", err);
+      if (err.code === 'auth/unauthorized-domain') {
+        setError("O domínio deste aplicativo não está autorizado no Firebase. Adicione-o na aba Authentication do Firebase.");
+      } else {
+        setError("Erro após redirecionamento: " + err.message);
+      }
+    });
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
@@ -94,6 +105,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const loginWithGoogleRedirect = async () => {
+    setError(null);
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithRedirect(auth, provider);
+    } catch (err: any) {
+      console.error("Erro no login com redirect:", err);
+      setError("Erro ao fazer login via redirecionamento: " + err.message);
+    }
+  };
+
   const logout = async () => {
     await signOut(auth);
   };
@@ -114,7 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, userData, loading, loginWithGoogle, logout, updateUserData }}>
+    <AuthContext.Provider value={{ user, userData, loading, error, clearError, loginWithGoogle, loginWithGoogleRedirect, logout, updateUserData }}>
       {children}
     </AuthContext.Provider>
   );
