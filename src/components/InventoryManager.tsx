@@ -156,10 +156,31 @@ export default function InventoryManager({ user, onBack }: any) {
                   <Input type="number" placeholder="Ex: 40.00" value={costPrice} onChange={e => setCostPrice(e.target.value)} className="h-12 bg-secondary/50 border-border" />
                 </div>
                 <div>
-                  <label className="text-sm font-medium mb-1.5 block text-muted-foreground">Preço de Venda (R$)</label>
+                  <label className="text-sm font-medium mb-1.5 block text-muted-foreground">Preço final de Venda (R$)</label>
                   <Input type="number" placeholder="Ex: 89.90" value={price} onChange={e => setPrice(e.target.value)} className="h-12 bg-secondary/50 border-border" />
                 </div>
               </div>
+              {Number(price) > 0 && (
+                 <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 flex justify-between items-center text-sm">
+                   <div className="text-muted-foreground">
+                      Análise de Preço:
+                   </div>
+                   <div className="text-right">
+                      <span className="text-primary font-bold block">
+                         Lucro: R$ {(Number(price) - Number(costPrice || 0)).toFixed(2)}
+                      </span>
+                      {Number(costPrice) > 0 ? (
+                         <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded font-bold uppercase mt-1 inline-block">
+                            Margem: {(((Number(price) - Number(costPrice)) / Number(costPrice)) * 100).toFixed(1)}%
+                         </span>
+                      ) : (
+                         <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded font-bold uppercase mt-1 inline-block">
+                            Margem: 100%
+                         </span>
+                      )}
+                   </div>
+                 </div>
+              )}
               <div>
                  <label className="text-sm font-medium mb-1.5 block text-muted-foreground">Quantidade</label>
                  <Input type="number" placeholder="Ex: 50" value={qty} onChange={e => setQty(e.target.value)} className="h-12 bg-secondary/50 border-border" />

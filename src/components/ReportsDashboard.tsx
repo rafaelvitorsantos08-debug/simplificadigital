@@ -145,9 +145,16 @@ export default function ReportsDashboard({ user, onBack }: any) {
 
              <div className="bg-card rounded-2xl p-5 border border-primary/20 shadow-[0_0_15px_rgba(0,255,102,0.1)] relative overflow-hidden flex flex-col justify-between">
                 <div className="absolute top-0 right-0 p-4 opacity-5"><TrendingUp size={80} /></div>
-                <div className="flex items-center gap-2 text-primary mb-4 relative z-10">
-                  <div className="p-1.5 bg-primary/10 rounded-md"><TrendingUp size={16} /></div>
-                  <h3 className="font-semibold text-sm uppercase tracking-wide">Lucro Liquido Global</h3>
+                <div className="flex items-center justify-between mb-4 relative z-10">
+                  <div className="flex items-center gap-2 text-primary">
+                    <div className="p-1.5 bg-primary/10 rounded-md"><TrendingUp size={16} /></div>
+                    <h3 className="font-semibold text-sm uppercase tracking-wide">Lucro Líquido Global</h3>
+                  </div>
+                  {totalCost > 0 && (
+                    <span className="text-[10px] font-bold bg-primary/20 text-primary px-2 py-0.5 rounded border border-primary/30">
+                      Margem: {((totalProfit / totalCost) * 100).toFixed(1)}%
+                    </span>
+                  )}
                 </div>
                 <p className="text-3xl font-bold relative z-10 text-primary">R$ {totalProfit.toFixed(2)}</p>
              </div>
@@ -208,9 +215,17 @@ export default function ReportsDashboard({ user, onBack }: any) {
                                  <p className="text-[10px] text-muted-foreground uppercase font-semibold">Faturamento</p>
                                  <p className="text-sm font-medium">R$ {stat.faturamento.toFixed(2)}</p>
                               </div>
-                              <div className="text-right ml-auto sm:ml-0">
-                                 <p className="text-[10px] text-primary uppercase font-bold">Lucro</p>
-                                 <p className="font-bold text-xl text-primary">R$ {stat.lucro.toFixed(2)}</p>
+                              <div className="text-right ml-auto sm:ml-0 flex items-center gap-4">
+                                 <div>
+                                   <p className="text-[10px] text-primary uppercase font-bold text-left ml-1">Margem Média</p>
+                                   <span className="text-xs font-bold bg-primary/20 text-primary px-2 py-0.5 rounded border border-primary/30 mr-2">
+                                     {stat.custo > 0 ? ((stat.lucro / stat.custo) * 100).toFixed(1) : 100}%
+                                   </span>
+                                 </div>
+                                 <div className="text-right">
+                                   <p className="text-[10px] text-primary uppercase font-bold">Lucro Líquido</p>
+                                   <p className="font-bold text-xl text-primary">R$ {stat.lucro.toFixed(2)}</p>
+                                 </div>
                               </div>
                             </div>
                          </div>
@@ -271,13 +286,19 @@ export default function ReportsDashboard({ user, onBack }: any) {
                              <div className="flex gap-4 sm:gap-6 text-right w-full sm:w-auto items-center mt-2 sm:mt-0">
                                 {sale.custo > 0 && (
                                    <>
-                                     <div className="text-left sm:text-right">
+                                     <div className="text-left sm:text-right hidden sm:block">
                                        <p className="text-[10px] text-muted-foreground uppercase font-semibold">Custo</p>
                                        <p className="text-xs text-destructive">R$ {Number(sale.custo).toFixed(2)}</p>
                                      </div>
-                                     <div className="text-left sm:text-right">
+                                     <div className="text-left sm:text-right hidden sm:block">
                                        <p className="text-[10px] text-muted-foreground uppercase font-semibold">Venda</p>
                                        <p className="text-xs text-foreground">R$ {Number(sale.valor || 0).toFixed(2)}</p>
+                                     </div>
+                                     <div className="text-left sm:text-right">
+                                       <p className="text-[10px] text-primary uppercase font-bold">Margem</p>
+                                       <span className="text-xs font-bold bg-primary/20 text-primary px-2 py-0.5 rounded border border-primary/30 inline-block mt-0.5">
+                                         {(((Number(sale.valor || 0) - Number(sale.custo)) / Number(sale.custo)) * 100).toFixed(1)}%
+                                       </span>
                                      </div>
                                    </>
                                 )}
