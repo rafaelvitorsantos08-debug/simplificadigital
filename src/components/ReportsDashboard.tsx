@@ -19,12 +19,39 @@ export default function ReportsDashboard({ user, onBack }: any) {
   const fetchSales = async () => {
     setLoading(true);
     try {
+      // Fetch Inventory first to build a cost dictionary for legacy sales
+      const invQuery = query(collection(db, 'inventory'), where('userId', '==', user.uid));
+      const invSnapshot = await getDocs(invQuery);
+      const costDict: Record<string, number> = {};
+      invSnapshot.forEach(doc => {
+         const data = doc.data();
+         if (data.name) {
+            costDict[data.name.toLowerCase()] = Number(data.costPrice || 0);
+         }
+      });
+
       const q = query(
         collection(db, 'sales'), 
         where('userId', '==', user.uid)
       );
       const snapshot = await getDocs(q);
-      const fetched: any[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const fetched: any[] = snapshot.docs.map(doc => {
+        const data = doc.data();
+        let custo = Number(data.custo || 0);
+        // Retro-fill cost for legacy sales
+        if (custo === 0 && data.produto) {
+           const prodName = String(data.produto).toLowerCase();
+           if (costDict[prodName]) {
+              custo = costDict[prodName];
+           }
+        }
+        return {
+          id: doc.id,
+          ...data,
+          custo, // updated cost
+          lucro: Number(data.valor || 0) - custo // updated profit
+        };
+      });
       
       fetched.sort((a: any, b: any) => b.createdAt?.toMillis() - a.createdAt?.toMillis());
       setSales(fetched);

@@ -121,12 +121,12 @@ export default function InventoryManager({ user, onBack }: any) {
                     <span className="text-[10px] text-muted-foreground block mb-0.5">
                       Custo: R$ {Number(item.costPrice || 0).toFixed(2)}
                     </span>
-                    {Number(item.price) > 0 && (
+                    {Number(item.price || 0) > 0 && (
                       <span className="text-[10px] text-primary block font-bold mb-1 px-1.5 py-0.5 bg-primary/10 rounded-md border border-primary/20 inline-block">
-                        Lucro: R$ {(Number(item.price) - Number(item.costPrice || 0)).toFixed(2)} ({Number(item.costPrice || 0) > 0 ? (((Number(item.price) - Number(item.costPrice || 0)) / Number(item.costPrice || 0)) * 100).toFixed(1) : 100}%)
+                        Lucro: R$ {(Number(item.price || 0) - Number(item.costPrice || 0)).toFixed(2)} ({Number(item.costPrice || 0) > 0 ? (((Number(item.price || 0) - Number(item.costPrice || 0)) / Number(item.costPrice || 0)) * 100).toFixed(1) : 100}%)
                       </span>
                     )}
-                    <span className="font-bold text-primary block text-lg leading-none mt-1">R$ {Number(item.price).toFixed(2)}</span>
+                    <span className="font-bold text-primary block text-lg leading-none mt-1">R$ {Number(item.price || 0).toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -160,18 +160,18 @@ export default function InventoryManager({ user, onBack }: any) {
                   <Input type="number" placeholder="Ex: 89.90" value={price} onChange={e => setPrice(e.target.value)} className="h-12 bg-secondary/50 border-border" />
                 </div>
               </div>
-              {Number(price) > 0 && (
+              {Number(price || 0) > 0 && (
                  <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 flex justify-between items-center text-sm">
                    <div className="text-muted-foreground">
                       Análise de Preço:
                    </div>
                    <div className="text-right">
                       <span className="text-primary font-bold block">
-                         Lucro: R$ {(Number(price) - Number(costPrice || 0)).toFixed(2)}
+                         Lucro: R$ {(Number(price || 0) - Number(costPrice || 0)).toFixed(2)}
                       </span>
-                      {Number(costPrice) > 0 ? (
+                      {Number(costPrice || 0) > 0 ? (
                          <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded font-bold uppercase mt-1 inline-block">
-                            Margem: {(((Number(price) - Number(costPrice)) / Number(costPrice)) * 100).toFixed(1)}%
+                            Margem: {(((Number(price || 0) - Number(costPrice || 0)) / Number(costPrice || 0)) * 100).toFixed(1)}%
                          </span>
                       ) : (
                          <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded font-bold uppercase mt-1 inline-block">
