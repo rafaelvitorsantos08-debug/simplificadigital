@@ -18,6 +18,18 @@ export default function InventoryManager({ user, onBack }: any) {
   const [price, setPrice] = useState('');
   const [costPrice, setCostPrice] = useState('');
 
+  const getParsedValue = (val: any) => {
+    if (!val) return 0;
+    const num = Number(String(val).replace(',', '.'));
+    return isNaN(num) ? 0 : num;
+  };
+
+  const parsedPriceAnalysis = getParsedValue(price);
+  const parsedCostAnalysis = getParsedValue(costPrice);
+  const marginAnalysis = parsedCostAnalysis > 0 
+    ? ((parsedPriceAnalysis - parsedCostAnalysis) / parsedCostAnalysis) * 100 
+    : 100;
+
   const fetchItems = async () => {
     setLoading(true);
     try {
@@ -51,17 +63,17 @@ export default function InventoryManager({ user, onBack }: any) {
   const handleSave = async () => {
     if (!name || !price) return alert("Nome e Preço são obrigatórios.");
 
-    const parsedQty = typeof qty === 'string' ? Number(qty.replace(',', '.')) : Number(qty);
-    const parsedPrice = typeof price === 'string' ? Number(price.replace(',', '.')) : Number(price);
-    const parsedCost = typeof costPrice === 'string' ? Number(costPrice.replace(',', '.')) : Number(costPrice);
+    const parsedQty = getParsedValue(qty);
+    const parsedPrice = getParsedValue(price);
+    const parsedCost = getParsedValue(costPrice);
 
     const payload = {
       userId: user.uid,
       name,
       summary,
-      qty: isNaN(parsedQty) ? 0 : parsedQty,
-      price: isNaN(parsedPrice) ? 0 : parsedPrice,
-      costPrice: isNaN(parsedCost) ? 0 : parsedCost,
+      qty: parsedQty,
+      price: parsedPrice,
+      costPrice: parsedCost,
       updatedAt: serverTimestamp()
     };
 
@@ -165,24 +177,18 @@ export default function InventoryManager({ user, onBack }: any) {
                   <Input type="number" placeholder="Ex: 89.90" value={price} onChange={e => setPrice(e.target.value)} className="h-12 bg-secondary/50 border-border" />
                 </div>
               </div>
-              {Number(String(price).replace(',', '.') || 0) > 0 && (
+              {parsedPriceAnalysis > 0 && (
                  <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 flex justify-between items-center text-sm">
                    <div className="text-muted-foreground">
                       Análise de Preço:
                    </div>
                    <div className="text-right">
                       <span className="text-primary font-bold block">
-                         Lucro: R$ {(Number(String(price).replace(',', '.') || 0) - Number(String(costPrice).replace(',', '.') || 0)).toFixed(2)}
+                         Lucro: R$ {(parsedPriceAnalysis - parsedCostAnalysis).toFixed(2)}
                       </span>
-                      {Number(String(costPrice).replace(',', '.') || 0) > 0 ? (
-                         <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded font-bold uppercase mt-1 inline-block">
-                            Margem: {(((Number(String(price).replace(',', '.') || 0) - Number(String(costPrice).replace(',', '.') || 0)) / Number(String(costPrice).replace(',', '.') || 0)) * 100).toFixed(1)}%
-                         </span>
-                      ) : (
-                         <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded font-bold uppercase mt-1 inline-block">
-                            Margem: 100%
-                         </span>
-                      )}
+                      <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded font-bold uppercase mt-1 inline-block">
+                        Margem: {marginAnalysis.toFixed(1)}%
+                      </span>
                    </div>
                  </div>
               )}
