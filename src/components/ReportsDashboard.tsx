@@ -26,7 +26,7 @@ export default function ReportsDashboard({ user, onBack }: any) {
       invSnapshot.forEach(doc => {
          const data = doc.data();
          if (data.name) {
-            costDict[data.name.toLowerCase()] = Number(data.costPrice || 0);
+            costDict[String(data.name).toLowerCase().trim()] = Number(data.costPrice || 0);
          }
       });
 
@@ -40,7 +40,7 @@ export default function ReportsDashboard({ user, onBack }: any) {
         let custo = Number(data.custo || 0);
         // Retro-fill cost for legacy sales
         if (custo === 0 && data.produto) {
-           const prodName = String(data.produto).toLowerCase();
+           const prodName = String(data.produto).toLowerCase().trim();
            if (costDict[prodName]) {
               custo = costDict[prodName];
            }
@@ -156,7 +156,7 @@ export default function ReportsDashboard({ user, onBack }: any) {
                 <div className="absolute top-0 right-0 p-4 opacity-5"><ListOrdered size={80} /></div>
                 <div className="flex items-center gap-2 text-muted-foreground mb-4 relative z-10">
                   <div className="p-1.5 bg-secondary rounded-md text-foreground"><ListOrdered size={16} /></div>
-                  <h3 className="font-semibold text-sm uppercase tracking-wide">Faturamento Global</h3>
+                  <h3 className="font-semibold text-sm uppercase tracking-wide">Faturamento</h3>
                 </div>
                 <p className="text-3xl font-bold relative z-10">R$ {totalRevenue.toFixed(2)}</p>
              </div>
@@ -165,7 +165,7 @@ export default function ReportsDashboard({ user, onBack }: any) {
                 <div className="absolute top-0 right-0 p-4 opacity-5"><Package size={80} /></div>
                 <div className="flex items-center gap-2 text-muted-foreground mb-4 relative z-10">
                   <div className="p-1.5 bg-destructive/10 rounded-md text-destructive"><Package size={16} /></div>
-                  <h3 className="font-semibold text-sm uppercase tracking-wide">Custo Total Global</h3>
+                  <h3 className="font-semibold text-sm uppercase tracking-wide">Custo Total</h3>
                 </div>
                 <p className="text-3xl font-bold relative z-10 text-destructive">R$ {totalCost.toFixed(2)}</p>
              </div>
@@ -175,7 +175,7 @@ export default function ReportsDashboard({ user, onBack }: any) {
                 <div className="flex items-center justify-between mb-4 relative z-10">
                   <div className="flex items-center gap-2 text-primary">
                     <div className="p-1.5 bg-primary/10 rounded-md"><TrendingUp size={16} /></div>
-                    <h3 className="font-semibold text-sm uppercase tracking-wide">Lucro Líquido Global</h3>
+                    <h3 className="font-semibold text-sm uppercase tracking-wide">Lucro Líquido</h3>
                   </div>
                   {totalCost > 0 && (
                     <span className="text-[10px] font-bold bg-primary/20 text-primary px-2 py-0.5 rounded border border-primary/30">

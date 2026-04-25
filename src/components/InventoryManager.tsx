@@ -50,13 +50,18 @@ export default function InventoryManager({ user, onBack }: any) {
 
   const handleSave = async () => {
     if (!name || !price) return alert("Nome e Preço são obrigatórios.");
+
+    const parsedQty = typeof qty === 'string' ? Number(qty.replace(',', '.')) : Number(qty);
+    const parsedPrice = typeof price === 'string' ? Number(price.replace(',', '.')) : Number(price);
+    const parsedCost = typeof costPrice === 'string' ? Number(costPrice.replace(',', '.')) : Number(costPrice);
+
     const payload = {
       userId: user.uid,
       name,
       summary,
-      qty: Number(qty),
-      price: Number(price),
-      costPrice: Number(costPrice) || 0,
+      qty: isNaN(parsedQty) ? 0 : parsedQty,
+      price: isNaN(parsedPrice) ? 0 : parsedPrice,
+      costPrice: isNaN(parsedCost) ? 0 : parsedCost,
       updatedAt: serverTimestamp()
     };
 
@@ -160,18 +165,18 @@ export default function InventoryManager({ user, onBack }: any) {
                   <Input type="number" placeholder="Ex: 89.90" value={price} onChange={e => setPrice(e.target.value)} className="h-12 bg-secondary/50 border-border" />
                 </div>
               </div>
-              {Number(price || 0) > 0 && (
+              {Number(String(price).replace(',', '.') || 0) > 0 && (
                  <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 flex justify-between items-center text-sm">
                    <div className="text-muted-foreground">
                       Análise de Preço:
                    </div>
                    <div className="text-right">
                       <span className="text-primary font-bold block">
-                         Lucro: R$ {(Number(price || 0) - Number(costPrice || 0)).toFixed(2)}
+                         Lucro: R$ {(Number(String(price).replace(',', '.') || 0) - Number(String(costPrice).replace(',', '.') || 0)).toFixed(2)}
                       </span>
-                      {Number(costPrice || 0) > 0 ? (
+                      {Number(String(costPrice).replace(',', '.') || 0) > 0 ? (
                          <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded font-bold uppercase mt-1 inline-block">
-                            Margem: {(((Number(price || 0) - Number(costPrice || 0)) / Number(costPrice || 0)) * 100).toFixed(1)}%
+                            Margem: {(((Number(String(price).replace(',', '.') || 0) - Number(String(costPrice).replace(',', '.') || 0)) / Number(String(costPrice).replace(',', '.') || 0)) * 100).toFixed(1)}%
                          </span>
                       ) : (
                          <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded font-bold uppercase mt-1 inline-block">
