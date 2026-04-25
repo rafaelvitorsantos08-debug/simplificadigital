@@ -5,7 +5,7 @@ import { Sparkles, Loader2, LogIn, LogOut, Camera, Mic, BarChart3, TrendingUp } 
 import { Button } from '@/components/ui/button';
 
 function MainApp() {
-  const { user, userData, loading, loginWithGoogle, logout, updateUserData } = useAuth();
+  const { user, userData, loading, error, clearError, loginWithGoogle, logout, updateUserData } = useAuth();
 
   if (loading) {
     return (
@@ -29,6 +29,19 @@ function MainApp() {
           <h1 className="text-4xl font-bold mb-4 tracking-tight text-foreground">Simplifica.</h1>
           <p className="text-muted-foreground mb-8 text-lg">Pare de perder dinheiro por falta de organização no seu negócio.</p>
           
+          {error && (
+            <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg text-sm text-left shadow-sm">
+              <p className="font-semibold mb-1">Aviso</p>
+              <p>{error}</p>
+              {error.includes('Vercel') || error.includes('domínio') ? (
+                <p className="mt-2 text-xs opacity-80">
+                  Acesse o console do Firebase &gt; Authentication &gt; Settings &gt; Authorized domains e adicione seu domínio. <br />
+                  Se estiver usando a Vercel, pegue o URL que aparece no seu navegador.
+                </p>
+              ) : null}
+            </div>
+          )}
+
           <Button onClick={loginWithGoogle} size="lg" className="w-full h-14 text-lg font-medium shadow-primary/20 shadow-lg">
             <LogIn className="mr-2 w-5 h-5" /> Entrar com Google
           </Button>

@@ -17,6 +17,8 @@ interface AuthContextType {
   user: User | null;
   userData: UserData | null;
   loading: boolean;
+  error: string | null;
+  clearError: () => void;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   updateUserData: (data: Partial<UserData>) => Promise<void>;
@@ -28,6 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -35,26 +38,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (currentUser) {
         // Fetch or create user document in Firestore
         const userRef = doc(db, 'users', currentUser.uid);
-        const docSnap = await getDoc(userRef);
-        
-        if (docSnap.exists()) {
-          setUserData(docSnap.data() as UserData);
-        } else {
-          const newUserData: UserData = {
-            uid: currentUser.uid,
-            name: currentUser.displayName || 'Usuário',
-            email: currentUser.email || '',
-            setupFinished: false,
-          };
-          try {
+        try {
+          const docSnap = await getDoc(userRef);
+          
+          if (docSnap.exists()) {
+            setUserData(docSnap.data() as UserData);
+          } else {
+            const newUserData: UserData = {
+              uid: currentUser.uid,
+              name: currentUser.displayName || 'Usuário',
+              email: currentUser.email || '',
+              setupFinished: false,
+            };
             await setDoc(userRef, {
               ...newUserData,
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp()
             });
             setUserData(newUserData);
-          } catch (e) {
-            console.error("Error creating user document", e);
+          }
+        } catch (e: any) {
+          console.error("Error fetching/creating user document", e);
+          if (e.message?.includes('permissions')) {
+             setError("Erro de permissão no banco de dados. Verifique as regras do Firestore.");
           }
         }
       } else {
@@ -66,21 +72,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, []);
 
+  const clearError = () => setError(null);
+
   const loginWithGoogle = async () => {
+    setError(null);
     try {
       const provider = new GoogleAuthProvider();
       // Opcional: provider.setCustomParameters({ prompt: 'select_account' })
       await signInWithPopup(auth, provider);
-    } catch (error: any) {
-      console.error("Erro no login com o Google:", error);
-      if (error.code === 'auth/unauthorized-domain') {
-        alert("Erro: O domínio da sua Vercel não está autorizado no Firebase. Vá no Console do Firebase > Authentication > Settings (Configurações) > Authorized domains (Domínios Autorizados) e adicione o seu domínio da Vercel.");
-      } else if (error.code === 'auth/popup-blocked') {
-        alert("O seu navegador bloqueou o popup de login. Por favor, permita popups para este site.");
-      } else if (error.code === 'auth/popup-closed-by-user') {
+    } catch (err: any) {
+      console.error("Erro no login com o Google:", err);
+      if (err.code === 'auth/unauthorized-domain') {
+        setError("O domínio deste aplicativo não está autorizado no Firebase. Adicione-o na aba Authentication do Firebase.");
+      } else if (err.code === 'auth/popup-blocked') {
+        setError("O popup de login foi bloqueado. Tente por outro navegador ou permita popups.");
+      } else if (err.code === 'auth/popup-closed-by-user') {
         // Usuário fechou o popup intencionalmente, nada a fazer
       } else {
-        alert("Ocorreu um erro ao tentar fazer login: " + error.message);
+        setError("Erro ao fazer login: " + err.message);
       }
     }
   };
