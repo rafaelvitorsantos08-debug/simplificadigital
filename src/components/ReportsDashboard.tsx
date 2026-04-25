@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BarChart3, TrendingUp, Package, Calendar, DollarSign, ListOrdered } from 'lucide-react';
+import { BarChart3, TrendingUp, Package, Calendar, DollarSign, ListOrdered, Printer, Download } from 'lucide-react';
 import { Button } from './ui/button';
 import { db } from '../lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
@@ -140,11 +140,56 @@ export default function ReportsDashboard({ user, onBack }: any) {
   today.setHours(0,0,0,0);
   const displayedSales = activeTab === 'daily' ? sales.filter(s => s.createdAt && s.createdAt.toDate() >= today) : sales;
 
+  const exportCSV = () => {
+    let csvContent = "data:text/csv;charset=utf-8,";
+    
+    if (activeTab === 'monthly') {
+      csvContent += "Mes,Custo Total,Faturamento,Lucro,Margem (%)\n";
+      monthlyStats.forEach(stat => {
+        const margem = stat.custo > 0 ? ((stat.lucro / stat.custo) * 100).toFixed(1) : '100';
+        csvContent += `${stat.month},${stat.custo.toFixed(2)},${stat.faturamento.toFixed(2)},${stat.lucro.toFixed(2)},${margem}%\n`;
+      });
+    } else if (activeTab === 'products') {
+      csvContent += "Produto,Quantidade Vendida,Custo Total,Faturamento,Lucro,Margem (%)\n";
+      productStats.forEach(stat => {
+        const margem = stat.custo > 0 ? ((stat.lucro / stat.custo) * 100).toFixed(1) : '100';
+        csvContent += `${stat.produto},${stat.quantidade},${stat.custo.toFixed(2)},${stat.faturamento.toFixed(2)},${stat.lucro.toFixed(2)},${margem}%\n`;
+      });
+    } else {
+      csvContent += "Data,Produto,Pagamento,Custo,Venda,Lucro\n";
+      displayedSales.forEach(sale => {
+        const dateStr = formatDate(sale.createdAt).replace(/,/g, '');
+        const prod = String(sale.produto || 'Item não identificado').replace(/,/g, '');
+        csvContent += `${dateStr},${prod},${sale.pagamento || '-'},${Number(sale.custo).toFixed(2)},${Number(sale.valor || 0).toFixed(2)},${Number(sale.custo > 0 ? sale.lucro : (sale.valor || 0)).toFixed(2)}\n`;
+      });
+    }
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `relatorio_${activeTab}_${new Date().getTime()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const printReport = () => {
+    window.print();
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col p-6 sm:p-10 max-w-6xl mx-auto">
-      <div className="w-full flex justify-between items-center mb-8">
+      <div className="w-full flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <h2 className="text-3xl font-bold flex items-center gap-3"><BarChart3 className="text-primary"/> Relatórios e Dashboard</h2>
-        <Button variant="outline" onClick={onBack}>Voltar</Button>
+        <div className="flex items-center gap-2 print:hidden w-full sm:w-auto">
+          <Button variant="outline" onClick={exportCSV} className="flex-1 sm:flex-none">
+             <Download size={16} className="mr-2" /> CSV
+          </Button>
+          <Button variant="outline" onClick={printReport} className="flex-1 sm:flex-none">
+             <Printer size={16} className="mr-2" /> Imprimir
+          </Button>
+          <Button variant="outline" onClick={onBack} className="flex-1 sm:flex-none bg-secondary/50">Voltar</Button>
+        </div>
       </div>
 
       {loading ? (
@@ -197,7 +242,7 @@ export default function ReportsDashboard({ user, onBack }: any) {
           </div>
 
           <div className="bg-card rounded-2xl border border-border shadow-md mt-4 overflow-hidden">
-            <div className="flex border-b border-border bg-secondary/20">
+            <div className="flex border-b border-border bg-secondary/20 print:hidden">
                <button 
                  className={`flex-1 p-4 font-semibold text-sm transition-colors ${activeTab === 'daily' ? 'border-b-2 border-primary text-primary bg-primary/5' : 'text-muted-foreground hover:bg-secondary/40'}`}
                  onClick={() => setActiveTab('daily')}
