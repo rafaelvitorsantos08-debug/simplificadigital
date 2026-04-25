@@ -40,7 +40,7 @@ export async function processAudioSale(audioBlob: Blob, inventoryNames: string[]
                                     }
                                 },
                                 {
-                                    text: `Você é um assistente de vendas. Escute o áudio e extraia: 1) Nome do Produto/Serviço. 2) Valor da venda. 3) Método de pagamento.${inventoryContext} Responda APENAS em um JSON estruturado com {"produto": "...", "valor": 50.00, "pagamento": "PIX"}. Retorne as chaves em minúsculo e apenas esse objeto JSON.`
+                                    text: `Você é um assistente de vendas. Escute o áudio e extraia: 1) Nome do Produto/Serviço. 2) Valor da venda. 3) Método de pagamento.${inventoryContext} ATENÇÃO: Se o áudio estiver vazio, mudo, tiver só ruídos ou não conter nenhuma informação óbvia sobre uma venda, você DEVE retornar o JSON {"error": "Nenhuma venda identificada no áudio"}. Caso detecte a venda, responda APENAS em um JSON estruturado com {"produto": "...", "valor": 50.00, "pagamento": "PIX"}. NUNCA invente dados. Retorne as chaves em minúsculo e apenas esse objeto JSON.`
                                 }
                             ]
                         }
@@ -52,9 +52,16 @@ export async function processAudioSale(audioBlob: Blob, inventoryNames: string[]
 
                 const textOutput = response.text;
                 if(textOutput) {
-                   resolve(JSON.parse(textOutput));
+                   const parsed = JSON.parse(textOutput);
+                   if (parsed.error) {
+                       reject(new Error(parsed.error));
+                   } else if (!parsed.produto || parsed.produto.toLowerCase() === 'não identificado' || parsed.valor === 0) {
+                       reject(new Error("Aúdio inválido ou informações da venda estão incompletas. Fale o produto e o valor claramente."));
+                   } else {
+                       resolve(parsed);
+                   }
                 } else {
-                   reject("A IA não retornou texto.");
+                   reject(new Error("A IA não retornou texto."));
                 }
             } catch (error) {
                 console.error("Erro no Gemini:", error);
@@ -83,7 +90,7 @@ export async function processPhotoSale(base64Image: string): Promise<any> {
                             }
                         },
                         {
-                            text: 'Analise esta imagem (recibo, produto ou comprovante) e extraia: 1) Nome do Produto/Serviço. 2) Valor total. 3) Método de pagamento. Responda APENAS em JSON estruturado com {"produto": "...", "valor": 100.00, "pagamento": "..."}. Se algum campo não for encontrado, tente deduzir ou deixe null.'
+                            text: 'Analise esta imagem (recibo, produto ou comprovante) e extraia: 1) Nome do Produto/Serviço. 2) Valor total. 3) Método de pagamento. Se não houver nada relacionado a uma venda ou recibo, retorne {"error": "Nenhuma venda identificada na imagem"}. Caso contrário, responda APENAS em JSON estruturado com {"produto": "...", "valor": 100.00, "pagamento": "..."}. NUNCA invente dados e assegure-se de usar letras minúsculas nas chaves.'
                         }
                     ]
                 }
@@ -94,8 +101,15 @@ export async function processPhotoSale(base64Image: string): Promise<any> {
         });
 
         const textOutput = response.text;
-        if(textOutput) {
-           return JSON.parse(textOutput);
+        if (textOutput) {
+           const parsed = JSON.parse(textOutput);
+           if (parsed.error) {
+               throw new Error(parsed.error);
+           } else if (!parsed.produto || parsed.produto.toLowerCase() === 'não identificado' || parsed.valor === 0) {
+               throw new Error("Imagem inválida ou informações da venda estão incompletas. Fotografe um comprovante nítido.");
+           } else {
+               return parsed;
+           }
         }
         throw new Error("Sem resposta válida");
     } catch (error) {
