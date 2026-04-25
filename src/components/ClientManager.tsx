@@ -159,7 +159,7 @@ export default function ClientManager({ user, onBack }: any) {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 flex-1 content-start">
             {filteredClients.map(client => (
               <div key={client.id} className="bg-secondary/20 rounded-xl p-5 border border-border flex flex-col group relative hover:border-[#FFB800]/50 transition-colors">
-                <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute top-4 right-4 flex gap-2">
                   <button onClick={() => openEditModal(client)} className="p-1.5 bg-primary/20 text-primary rounded-md hover:bg-primary hover:text-white transition-colors"><Edit2 size={14}/></button>
                   <button onClick={() => handleDelete(client.id)} className="p-1.5 bg-destructive/20 text-destructive rounded-md hover:bg-destructive hover:text-white transition-colors"><Trash2 size={14}/></button>
                 </div>
