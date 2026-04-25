@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react';
-import { Camera, Mic, BarChart3, TrendingUp, PackagePlus, UserPlus, X, Phone, StopCircle, RefreshCcw, Loader2, CheckCircle2, Pencil, Check } from 'lucide-react';
+import { Camera, Mic, BarChart3, TrendingUp, PackagePlus, UserPlus, X, Phone, StopCircle, RefreshCcw, Loader2, CheckCircle2, Pencil, Check, Image as ImageIcon } from 'lucide-react';
 import { Button } from './ui/button';
 import { processAudioSale, processPhotoSale } from '../services/geminiService';
-import { db } from '../lib/firebase';
+import { db, storage } from '../lib/firebase';
 import { collection, addDoc, serverTimestamp, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 import InventoryManager from './InventoryManager';
 import ClientManager from './ClientManager';
@@ -16,6 +17,9 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
   const [saleResult, setSaleResult] = useState<any>(null);
   const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [tempGoal, setTempGoal] = useState('');
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Dashboard Sales State (Simulated for this session)
   const [todayTotal, setTodayTotal] = useState(0);
@@ -197,6 +201,40 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
     }
   };
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setIsUploadingLogo(true);
+    try {
+      const extension = file.name.split('.').pop();
+      const fileName = `logos/${user.uid}_${Date.now()}.${extension}`;
+      const storageRef = ref(storage, fileName);
+      
+      const snapshot = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      
+      if (updateUserData) {
+        await updateUserData({ logoUrl: downloadURL });
+      }
+    } catch (err: any) {
+      console.error("Erro ao fazer upload da logo:", err);
+      // Fallback: rule might deny storage if it's default. Try warning user.
+      if (err.message?.includes('unauthorized') || err.message?.includes('permis')) {
+         alert("Erro de permissão no Firebase Storage. Verifique as regras do Storage no Firebase Console.");
+      } else {
+         alert("Ocorreu um erro ao enviar a imagem.");
+      }
+    } finally {
+      setIsUploadingLogo(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const hasLogo = !!userData?.logoUrl;
+
   // Renderização UI do Processamento (IA)
   if (isProcessing) {
     return (
@@ -300,9 +338,32 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
     <div className="min-h-screen bg-background text-foreground flex flex-col p-6 sm:p-10 max-w-6xl mx-auto h-full relative">
       
       {/* HEADER */}
-      <header className="flex justify-between items-center mb-10 w-full animate-fade-in">
-        <div className="text-2xl font-extrabold tracking-tight">
-          SIMPLIFICA<span className="text-primary">DIGITAL</span>
+      <header className="flex justify-between items-center mb-10 w-full animate-fade-in relative pt-2">
+        <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            className="hidden" 
+            accept="image/*" 
+            onChange={handleLogoUpload}
+          />
+          {isUploadingLogo ? (
+            <div className="h-10 w-10 sm:h-12 sm:w-12 rounded bg-secondary/50 flex items-center justify-center border border-border">
+              <Loader2 className="w-5 h-5 animate-spin text-primary" />
+            </div>
+          ) : hasLogo ? (
+            <div className="relative h-10 sm:h-12 flex items-center">
+               <img src={userData.logoUrl} alt="Logo do app" className="h-full object-contain drop-shadow-md rounded" />
+               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded">
+                 <Pencil className="w-4 h-4 text-white" />
+               </div>
+            </div>
+          ) : (
+            <div className="text-2xl font-extrabold tracking-tight flex items-center gap-2 group-hover:opacity-80 transition-opacity">
+              SIMPLIFICA<span className="text-primary">DIGITAL</span>
+              <ImageIcon size={14} className="opacity-0 group-hover:opacity-50 text-muted-foreground ml-1" />
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3 bg-secondary/50 px-4 py-2 rounded-full border border-border/40 shadow-sm backdrop-blur-sm">
           <div className="w-2 h-2 sm:w-3 sm:h-3 bg-primary rounded-full shadow-[0_0_8px_rgba(0,255,102,0.8)]"></div>
