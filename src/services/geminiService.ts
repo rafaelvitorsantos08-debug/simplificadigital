@@ -1,12 +1,23 @@
 import { GoogleGenAI } from '@google/genai';
 
 const getApiKey = () => {
-  // Try mapping injected define variables first, then import meta.
-  // We use direct static references so Vite can textually replace them at build time.
   // @ts-ignore
-  const apiKey = process.env.GEMINI_API_KEY || process.env.API_GEMINI_KEY || import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_API_GEMINI_KEY;
+  let apiKey = process.env.GEMINI_API_KEY || process.env.API_GEMINI_KEY || import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_API_GEMINI_KEY;
+  
+  if (apiKey === 'undefined' || apiKey === 'null') {
+      apiKey = null;
+  }
+
   if (!apiKey) {
-    throw new Error('GEMINI_API_KEY não configurada. Defina na aba de Environment Variables da Vercel e FAÇA UM NOVO DEPLOY para aplicar.');
+      apiKey = localStorage.getItem('custom_gemini_api_key');
+      if (!apiKey) {
+          apiKey = window.prompt("Chave da API do Gemini não encontrada no ambiente (Vercel).\nPara continuar usando as funções de IA, por favor cole sua GEMINI_API_KEY abaixo:");
+          if (apiKey && apiKey.trim().length > 0) {
+              localStorage.setItem('custom_gemini_api_key', apiKey.trim());
+          } else {
+              throw new Error("Chave da API não fornecida. Operação cancelada.");
+          }
+      }
   }
   return apiKey;
 };
