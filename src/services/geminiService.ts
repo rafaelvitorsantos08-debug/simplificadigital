@@ -74,9 +74,14 @@ export async function processAudioSale(audioBlob: Blob, inventoryNames: string[]
                 } else {
                    reject(new Error("A IA não retornou texto."));
                 }
-            } catch (error) {
+            } catch (error: any) {
                 console.error("Erro no Gemini:", error);
-                reject(error);
+                if (error.message && (error.message.includes("API key not valid") || error.message.includes("API_KEY_INVALID"))) {
+                    localStorage.removeItem('custom_gemini_api_key');
+                    reject(new Error("Chave da API do Gemini inválida. Por favor, tente novamente."));
+                } else {
+                    reject(error);
+                }
             }
         };
         reader.onerror = reject;
@@ -123,8 +128,12 @@ export async function processPhotoSale(base64Image: string): Promise<any> {
            }
         }
         throw new Error("Sem resposta válida");
-    } catch (error) {
+    } catch (error: any) {
         console.error("Erro no Gemini:", error);
+        if (error.message && (error.message.includes("API key not valid") || error.message.includes("API_KEY_INVALID"))) {
+            localStorage.removeItem('custom_gemini_api_key');
+            throw new Error("Chave da API do Gemini inválida. Por favor, tente novamente.");
+        }
         throw error;
     }
 }
@@ -166,8 +175,12 @@ export async function processTextSale(textInput: string, inventoryNames: string[
             }
         }
         throw new Error("Sem resposta válida");
-    } catch (error) {
+    } catch (error: any) {
         console.error("Erro no Gemini (texto):", error);
+        if (error.message && (error.message.includes("API key not valid") || error.message.includes("API_KEY_INVALID"))) {
+            localStorage.removeItem('custom_gemini_api_key');
+            throw new Error("Chave da API do Gemini inválida. Por favor, tente novamente.");
+        }
         throw error;
     }
 }
