@@ -114,28 +114,41 @@ export default function ClientManager({ user, onBack }: any) {
     const number = client.whatsapp.replace(/\D/g, '');
     let text = `Olá ${client.socialName || client.name}! Aqui é referente sobre ${client.item || 'seu interesse'}.`;
     
-    // Attempt Web Share API if image exists (works beautifully on Mobile Safari & Android Chrome)
-    if (matchedItem && matchedItem.photoUrl && navigator.canShare) {
+    if (matchedItem && matchedItem.photoUrl) {
       try {
         const response = await fetch(matchedItem.photoUrl);
         const blob = await response.blob();
-        const file = new File([blob], "produto.jpg", { type: blob.type });
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            text: text,
-            title: 'Produto'
-          });
-          return; // Stop here, since sharing triggered successfully
+        
+        // 1. Tenta API Nativa de Compartilhamento (Funciona bem em Mobile)
+        if (navigator.canShare) {
+          const file = new File([blob], "produto.jpg", { type: blob.type });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              text: text,
+              title: 'Produto'
+            });
+            return; // Se funcionou, para aqui
+          }
+        }
+
+        // 2. Fallback para Desktop: Tenta copiar a imagem para a área de transferência
+        if (navigator.clipboard && window.ClipboardItem) {
+          const type = blob.type.startsWith('image/') ? blob.type : 'image/png';
+          const clipboardItem = new ClipboardItem({ [type]: blob });
+          await navigator.clipboard.write([clipboardItem]);
+          alert("A foto do produto foi copiada para sua área de transferência! ✅\n\nQuando o WhatsApp abrir, basta apertar (CTRL+V ou CMD+V) na conversa para enviar a foto junto com o texto.");
+        } else if (!matchedItem.photoUrl.startsWith('data:')) {
+          // 3. Fallback final: Envia o link da imagem se não for um Data URI gigante
+          text += `\n\nVeja a foto: ${matchedItem.photoUrl}`;
         }
       } catch (err) {
-        console.warn("Erro ao usar Share API, tentando link direto (CORS possivelmente não configurado).", err);
-        // Fallback: append link
-        text += `\n\nVeja a foto: ${matchedItem.photoUrl}`;
+        console.warn("Erro ao anexar a foto:", err);
+        // Fallback final: Envia o link da imagem se não for base64 e se deu erro
+        if (!matchedItem.photoUrl.startsWith('data:')) {
+           text += `\n\nVeja a foto: ${matchedItem.photoUrl}`;
+        }
       }
-    } else if (matchedItem && matchedItem.photoUrl) {
-        // Fallback for desktops without Web Share
-        text += `\n\nVeja a foto: ${matchedItem.photoUrl}`;
     }
 
     const whatsappUrl = `https://wa.me/55${number}?text=${encodeURIComponent(text)}`;
