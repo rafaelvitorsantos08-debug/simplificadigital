@@ -2,9 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { PackagePlus, Edit2, Trash2, X, Plus, Image as ImageIcon, Camera, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { db, storage } from '../lib/firebase';
+import { db } from '../lib/firebase';
 import { collection, query, where, getDocs, deleteDoc, updateDoc, doc, addDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export default function InventoryManager({ user, onBack }: any) {
   const [items, setItems] = useState<any[]>([]);
@@ -71,22 +70,56 @@ export default function InventoryManager({ user, onBack }: any) {
     
     setIsUploadingPhoto(true);
     try {
-      const extension = file.name.split('.').pop();
-      const fileName = `inventory/${user.uid}_${Date.now()}.${extension}`;
-      const storageRef = ref(storage, fileName);
-      
-      const snapshot = await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(snapshot.ref);
-      
-      setPhotoUrl(downloadURL);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 800;
+          const MAX_HEIGHT = 800;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height = Math.round((height * MAX_WIDTH) / width);
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width = Math.round((width * MAX_HEIGHT) / height);
+              height = MAX_HEIGHT;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+             ctx.drawImage(img, 0, 0, width, height);
+             const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+             setPhotoUrl(dataUrl);
+          }
+          setIsUploadingPhoto(false);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
+        };
+        img.onerror = () => {
+          setIsUploadingPhoto(false);
+          alert("Erro ao ler a imagem.");
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.onerror = () => {
+        setIsUploadingPhoto(false);
+        alert("Erro ao ler o arquivo.");
+      };
+      reader.readAsDataURL(file);
     } catch (err: any) {
-      console.error("Erro ao fazer upload da foto:", err);
-      alert("Ocorreu um erro ao enviar a imagem. Tente novamente.");
-    } finally {
+      console.error("Erro ao processar a foto:", err);
+      alert("Ocorreu um erro ao processar a imagem. Tente novamente.");
       setIsUploadingPhoto(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
     }
   };
 
