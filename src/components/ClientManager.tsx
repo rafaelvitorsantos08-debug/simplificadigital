@@ -7,6 +7,7 @@ import { collection, query, where, getDocs, deleteDoc, updateDoc, doc, addDoc, s
 
 export default function ClientManager({ user, onBack }: any) {
   const [clients, setClients] = useState<any[]>([]);
+  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -23,13 +24,18 @@ export default function ClientManager({ user, onBack }: any) {
 
   const STATUS_OPTIONS = ['Lead', 'Negociação', 'Cliente', 'Pós-Venda', 'Perdido'];
 
-  const fetchClients = async () => {
+  const fetchClientsAndInventory = async () => {
     setLoading(true);
     try {
-      const q = query(collection(db, 'clients'), where('userId', '==', user.uid));
-      const snapshot = await getDocs(q);
-      const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setClients(fetched);
+      const qClients = query(collection(db, 'clients'), where('userId', '==', user.uid));
+      const clientsSnapshot = await getDocs(qClients);
+      const fetchedClients = clientsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setClients(fetchedClients);
+
+      const qInv = query(collection(db, 'inventory'), where('userId', '==', user.uid));
+      const invSnapshot = await getDocs(qInv);
+      const fetchedInv = invSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setInventoryItems(fetchedInv);
     } catch (e) {
       console.error(e);
     } finally {
@@ -38,7 +44,7 @@ export default function ClientManager({ user, onBack }: any) {
   };
 
   useEffect(() => {
-    fetchClients();
+    fetchClientsAndInventory();
   }, [user.uid]);
 
   const openAddModal = () => {
@@ -71,20 +77,20 @@ export default function ClientManager({ user, onBack }: any) {
     };
 
     try {
+      let savedId = editingId;
       if (editingId) {
         await updateDoc(doc(db, 'clients', editingId), payload);
       } else {
-        await addDoc(collection(db, 'clients'), { ...payload, createdAt: serverTimestamp() });
+        const docRef = await addDoc(collection(db, 'clients'), { ...payload, createdAt: serverTimestamp() });
+        savedId = docRef.id;
       }
       
       if (andCall) {
-        const number = whatsapp.replace(/\D/g, '');
-        const text = `Olá ${socialName || name}, viemos falar sobre ${item}.`;
-        window.open(`https://wa.me/55${number}?text=${encodeURIComponent(text)}`, '_blank');
+        handleCall({...payload, id: savedId});
       }
 
       setShowModal(false);
-      fetchClients();
+      fetchClientsAndInventory();
     } catch (e) {
       console.error(e);
       alert("Erro ao salvar o CRM.");
@@ -95,7 +101,7 @@ export default function ClientManager({ user, onBack }: any) {
     if (confirm("Excluir cadastro deste contato no CRM?")) {
       try {
         await deleteDoc(doc(db, 'clients', id));
-        fetchClients();
+        fetchClientsAndInventory();
       } catch (e) {
         console.error(e);
         alert("Erro ao excluir.");
@@ -103,10 +109,37 @@ export default function ClientManager({ user, onBack }: any) {
     }
   };
 
-  const handleCall = (client: any) => {
+  const handleCall = async (client: any) => {
+    const matchedItem = inventoryItems.find(inv => inv.name.toLowerCase() === client.item?.toLowerCase());
     const number = client.whatsapp.replace(/\D/g, '');
-    const text = `Olá ${client.socialName || client.name}! Aqui é referente sobre ${client.item || 'seu interesse'}.`;
-    window.open(`https://wa.me/55${number}?text=${encodeURIComponent(text)}`, '_blank');
+    let text = `Olá ${client.socialName || client.name}! Aqui é referente sobre ${client.item || 'seu interesse'}.`;
+    
+    // Attempt Web Share API if image exists (works beautifully on Mobile Safari & Android Chrome)
+    if (matchedItem && matchedItem.photoUrl && navigator.canShare) {
+      try {
+        const response = await fetch(matchedItem.photoUrl);
+        const blob = await response.blob();
+        const file = new File([blob], "produto.jpg", { type: blob.type });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            text: text,
+            title: 'Produto'
+          });
+          return; // Stop here, since sharing triggered successfully
+        }
+      } catch (err) {
+        console.warn("Erro ao usar Share API, tentando link direto (CORS possivelmente não configurado).", err);
+        // Fallback: append link
+        text += `\n\nVeja a foto: ${matchedItem.photoUrl}`;
+      }
+    } else if (matchedItem && matchedItem.photoUrl) {
+        // Fallback for desktops without Web Share
+        text += `\n\nVeja a foto: ${matchedItem.photoUrl}`;
+    }
+
+    const whatsappUrl = `https://wa.me/55${number}?text=${encodeURIComponent(text)}`;
+    window.open(whatsappUrl, '_blank');
   };
 
   const filteredClients = filterStatus === 'all' 
@@ -157,14 +190,22 @@ export default function ClientManager({ user, onBack }: any) {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 flex-1 content-start">
-            {filteredClients.map(client => (
+            {filteredClients.map(client => {
+              const matchedItem = inventoryItems.find(inv => inv.name.toLowerCase() === client.item?.toLowerCase());
+              return (
               <div key={client.id} className="bg-secondary/20 rounded-xl p-5 border border-border flex flex-col group relative hover:border-[#FFB800]/50 transition-colors">
-                <div className="absolute top-4 right-4 flex gap-2">
+                <div className="absolute top-4 right-4 flex gap-2 z-10">
                   <button onClick={() => openEditModal(client)} className="p-1.5 bg-primary/20 text-primary rounded-md hover:bg-primary hover:text-white transition-colors"><Edit2 size={14}/></button>
                   <button onClick={() => handleDelete(client.id)} className="p-1.5 bg-destructive/20 text-destructive rounded-md hover:bg-destructive hover:text-white transition-colors"><Trash2 size={14}/></button>
                 </div>
                 
-                <div className="mb-3">
+                {matchedItem && matchedItem.photoUrl && (
+                  <div className="w-full h-24 mb-3 rounded-lg overflow-hidden border border-border mt-6">
+                    <img src={matchedItem.photoUrl} alt="Produto" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                )}
+
+                <div className={`mb-3 ${matchedItem?.photoUrl ? 'mt-2' : ''}`}>
                    <div className={`inline-block px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border mb-2 ${getStatusColor(client.status || 'Lead')}`}>
                      {client.status || 'Lead'}
                    </div>
@@ -197,7 +238,7 @@ export default function ClientManager({ user, onBack }: any) {
                    <Phone className="w-4 h-4 mr-2" /> Chamar WhatsApp
                 </Button>
               </div>
-            ))}
+            )})}
           </div>
         )}
       </div>

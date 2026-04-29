@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
-import { PackagePlus, Edit2, Trash2, X, Plus } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { PackagePlus, Edit2, Trash2, X, Plus, Image as ImageIcon, Camera, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { db } from '../lib/firebase';
+import { db, storage } from '../lib/firebase';
 import { collection, query, where, getDocs, deleteDoc, updateDoc, doc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export default function InventoryManager({ user, onBack }: any) {
   const [items, setItems] = useState<any[]>([]);
@@ -17,6 +18,10 @@ export default function InventoryManager({ user, onBack }: any) {
   const [qty, setQty] = useState('');
   const [price, setPrice] = useState('');
   const [costPrice, setCostPrice] = useState('');
+  const [photoUrl, setPhotoUrl] = useState('');
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const getParsedValue = (val: any) => {
     if (!val) return 0;
@@ -50,14 +55,39 @@ export default function InventoryManager({ user, onBack }: any) {
 
   const openAddModal = () => {
     setEditingId(null);
-    setName(''); setSummary(''); setQty(''); setPrice(''); setCostPrice('');
+    setName(''); setSummary(''); setQty(''); setPrice(''); setCostPrice(''); setPhotoUrl('');
     setShowModal(true);
   };
 
   const openEditModal = (item: any) => {
     setEditingId(item.id);
-    setName(item.name); setSummary(item.summary); setQty(item.qty); setPrice(item.price); setCostPrice(item.costPrice || '');
+    setName(item.name); setSummary(item.summary); setQty(item.qty); setPrice(item.price); setCostPrice(item.costPrice || ''); setPhotoUrl(item.photoUrl || '');
     setShowModal(true);
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setIsUploadingPhoto(true);
+    try {
+      const extension = file.name.split('.').pop();
+      const fileName = `inventory/${user.uid}_${Date.now()}.${extension}`;
+      const storageRef = ref(storage, fileName);
+      
+      const snapshot = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      
+      setPhotoUrl(downloadURL);
+    } catch (err: any) {
+      console.error("Erro ao fazer upload da foto:", err);
+      alert("Ocorreu um erro ao enviar a imagem. Tente novamente.");
+    } finally {
+      setIsUploadingPhoto(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
   const handleSave = async () => {
@@ -74,6 +104,7 @@ export default function InventoryManager({ user, onBack }: any) {
       qty: parsedQty,
       price: parsedPrice,
       costPrice: parsedCost,
+      photoUrl,
       updatedAt: serverTimestamp()
     };
 
@@ -126,10 +157,15 @@ export default function InventoryManager({ user, onBack }: any) {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 flex-1 content-start">
             {items.map(item => (
               <div key={item.id} className="bg-secondary/30 rounded-xl p-4 border border-border flex flex-col group relative">
-                <div className="absolute top-4 right-4 flex gap-2">
-                  <button onClick={() => openEditModal(item)} className="p-1.5 bg-primary/20 text-primary rounded-md hover:bg-primary hover:text-white transition-colors"><Edit2 size={14}/></button>
-                  <button onClick={() => handleDelete(item.id)} className="p-1.5 bg-destructive/20 text-destructive rounded-md hover:bg-destructive hover:text-white transition-colors"><Trash2 size={14}/></button>
+                <div className="absolute top-4 right-4 flex gap-2 z-10">
+                  <button onClick={() => openEditModal(item)} className="p-1.5 bg-primary/20 text-primary rounded-md hover:bg-primary hover:text-white transition-colors backdrop-blur-sm"><Edit2 size={14}/></button>
+                  <button onClick={() => handleDelete(item.id)} className="p-1.5 bg-destructive/20 text-destructive rounded-md hover:bg-destructive hover:text-white transition-colors backdrop-blur-sm"><Trash2 size={14}/></button>
                 </div>
+                {item.photoUrl && (
+                  <div className="w-full h-32 mb-3 rounded-lg overflow-hidden relative">
+                     <img src={item.photoUrl} alt={item.name} className="w-full h-full object-cover" />
+                  </div>
+                )}
                 <h3 className="font-bold text-lg max-w-[85%]">{item.name}</h3>
                 <p className="text-muted-foreground text-sm mb-3 h-10 overflow-hidden">{item.summary || "Sem descrição"}</p>
                 <div className="flex justify-between mt-auto pt-3 border-t border-border items-end">
@@ -154,11 +190,41 @@ export default function InventoryManager({ user, onBack }: any) {
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-card w-full max-w-md rounded-[24px] p-6 sm:p-8 border border-border/50 shadow-[0_20px_60px_rgba(0,0,0,0.8)] relative animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-card w-full max-w-md rounded-[24px] p-6 sm:p-8 border border-border/50 shadow-[0_20px_60px_rgba(0,0,0,0.8)] relative max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
             <button onClick={() => setShowModal(false)} className="absolute top-5 right-5 text-muted-foreground hover:text-foreground bg-secondary rounded-full p-1"><X size={20}/></button>
             <h3 className="text-xl sm:text-2xl font-bold mb-6 flex items-center gap-3"><PackagePlus className="text-primary"/> {editingId ? "Editar Item" : "Adicionar Item"}</h3>
             
             <div className="flex flex-col gap-5">
+              <div className="flex flex-col items-center mb-2">
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  className="hidden" 
+                  accept="image/*" 
+                  onChange={handlePhotoUpload}
+                />
+                <div 
+                   onClick={() => fileInputRef.current?.click()}
+                   className="w-full h-32 bg-secondary/50 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center cursor-pointer hover:bg-secondary/80 transition-colors relative overflow-hidden"
+                >
+                  {isUploadingPhoto ? (
+                     <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                  ) : photoUrl ? (
+                     <>
+                       <img src={photoUrl} alt="Preview" className="w-full h-full object-cover" />
+                       <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity text-white text-sm font-medium">
+                          Alterar Foto
+                       </div>
+                     </>
+                  ) : (
+                     <>
+                        <Camera className="w-8 h-8 text-muted-foreground mb-2" />
+                        <span className="text-sm font-medium text-muted-foreground">Adicionar Foto do Produto</span>
+                     </>
+                  )}
+                </div>
+              </div>
+
               <div>
                 <label className="text-sm font-medium mb-1.5 block text-muted-foreground">Nome do Produto ou Serviço</label>
                 <Input placeholder="Ex: Camiseta Básica, Consulta..." value={name} onChange={e => setName(e.target.value)} className="h-12 bg-secondary/50 border-border" />
