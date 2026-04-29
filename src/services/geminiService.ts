@@ -4,19 +4,23 @@ const getApiKey = () => {
   // @ts-ignore
   let apiKey = process.env.GEMINI_API_KEY || process.env.API_GEMINI_KEY || import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_API_GEMINI_KEY;
   
-  if (apiKey === 'undefined' || apiKey === 'null') {
+  if (apiKey === 'undefined' || apiKey === 'null' || apiKey === 'sua_chave_aqui' || apiKey === '') {
       apiKey = null;
   }
 
+  // Prioritize user-provided key if it overrides an invalid env key
+  const customKey = localStorage.getItem('custom_gemini_api_key');
+  if (customKey) {
+      apiKey = customKey;
+  }
+
   if (!apiKey) {
-      apiKey = localStorage.getItem('custom_gemini_api_key');
-      if (!apiKey) {
-          apiKey = window.prompt("Chave da API do Gemini não encontrada no ambiente (Vercel).\nPara continuar usando as funções de IA, por favor cole sua GEMINI_API_KEY abaixo:");
-          if (apiKey && apiKey.trim().length > 0) {
-              localStorage.setItem('custom_gemini_api_key', apiKey.trim());
-          } else {
-              throw new Error("Chave da API não fornecida. Operação cancelada.");
-          }
+      apiKey = window.prompt("⚠️ Configure a Inteligência Artificial ⚠️\n\nEste aplicativo precisa da API do Google Gemini para funcionar.\n\n1. Acesse: https://aistudio.google.com/app/apikey\n2. Crie uma chave gratuita\n3. Cole a chave (começa com AIza...) aqui abaixo:");
+      if (apiKey && apiKey.trim().length > 10) { // simple validation check
+          localStorage.setItem('custom_gemini_api_key', apiKey.trim());
+          return apiKey.trim();
+      } else {
+          throw new Error("Chave da API não fornecida ou muito curta. Operação cancelada.");
       }
   }
   return apiKey;
@@ -78,7 +82,7 @@ export async function processAudioSale(audioBlob: Blob, inventoryNames: string[]
                 console.error("Erro no Gemini:", error);
                 if (error.message && (error.message.includes("API key not valid") || error.message.includes("API_KEY_INVALID"))) {
                     localStorage.removeItem('custom_gemini_api_key');
-                    reject(new Error("Chave da API do Gemini inválida. Por favor, tente novamente."));
+                    reject(new Error("A chave da API do Gemini informada é inválida.\nPor favor, informe uma chave válida criada em aistudio.google.com/app/apikey."));
                 } else {
                     reject(error);
                 }
@@ -132,7 +136,7 @@ export async function processPhotoSale(base64Image: string): Promise<any> {
         console.error("Erro no Gemini:", error);
         if (error.message && (error.message.includes("API key not valid") || error.message.includes("API_KEY_INVALID"))) {
             localStorage.removeItem('custom_gemini_api_key');
-            throw new Error("Chave da API do Gemini inválida. Por favor, tente novamente.");
+            throw new Error("A chave da API do Gemini informada é inválida.\nPor favor, copie uma chave válida em aistudio.google.com/app/apikey.");
         }
         throw error;
     }
@@ -179,7 +183,7 @@ export async function processTextSale(textInput: string, inventoryNames: string[
         console.error("Erro no Gemini (texto):", error);
         if (error.message && (error.message.includes("API key not valid") || error.message.includes("API_KEY_INVALID"))) {
             localStorage.removeItem('custom_gemini_api_key');
-            throw new Error("Chave da API do Gemini inválida. Por favor, tente novamente.");
+            throw new Error("A chave da API do Gemini (Texto) é inválida.\nAcesse aistudio.google.com/app/apikey para criar uma nova, e tente novamente.");
         }
         throw error;
     }
