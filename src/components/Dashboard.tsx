@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { Camera, Mic, BarChart3, TrendingUp, PackagePlus, UserPlus, X, Phone, StopCircle, RefreshCcw, Loader2, CheckCircle2, Pencil, Check, Image as ImageIcon, Type } from 'lucide-react';
+import { Camera, Mic, BarChart3, TrendingUp, PackagePlus, UserPlus, X, Phone, StopCircle, RefreshCcw, Loader2, CheckCircle2, Pencil, Check, Image as ImageIcon } from 'lucide-react';
 import { Button } from './ui/button';
-import { processAudioSale, processPhotoSale, processTextSale } from '../services/geminiService';
+import { processAudioSale, processPhotoSale } from '../services/geminiService';
 import { db, storage } from '../lib/firebase';
 import { collection, addDoc, serverTimestamp, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -18,7 +18,6 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
   const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [tempGoal, setTempGoal] = useState('');
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
-  const [textInputSale, setTextInputSale] = useState('');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -234,25 +233,6 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
     }
   };
 
-  const submitTextSale = async () => {
-    if (!textInputSale.trim()) return;
-    setIsProcessing(true);
-    try {
-      const q = query(collection(db, 'inventory'), where('userId', '==', user.uid));
-      const snapshot = await getDocs(q);
-      const inventoryNames = snapshot.docs.map(d => d.data().name);
-
-      const data = await processTextSale(textInputSale, inventoryNames);
-      setSaleResult(data);
-      await saveSaleToDB(data);
-      setTextInputSale('');
-    } catch (e: any) {
-      alert("Erro na IA: " + e.message);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
   const hasLogo = !!userData?.logoUrl;
 
   // Renderização UI do Processamento (IA)
@@ -338,36 +318,6 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
          </div>
       </div>
      );
-  }
-
-  if (activeAction === 'text') {
-    return (
-      <div className="min-h-screen bg-background text-foreground flex flex-col p-6 sm:p-10 max-w-6xl mx-auto items-center justify-center">
-         <div className="w-32 h-32 rounded-full bg-secondary border-border border-4 flex items-center justify-center mb-8">
-            <Type className="w-16 h-16 text-muted-foreground" />
-         </div>
-         <h2 className="text-2xl font-bold mb-2">Gravar Venda em Texto</h2>
-         <p className="text-muted-foreground mb-10 text-center max-w-md">
-           Descreva sua venda, ex: "Vendi uma camiseta preta G por 60 reais no PIX."
-         </p>
-         
-         <div className="w-full max-w-md flex flex-col gap-4">
-           <textarea
-             className="w-full bg-secondary/50 border border-border rounded-xl p-4 min-h-[120px] focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none text-lg"
-             placeholder="Digite aqui..."
-             value={textInputSale}
-             onChange={(e) => setTextInputSale(e.target.value)}
-             autoFocus
-           />
-           <div className="flex gap-4 w-full">
-             <Button variant="outline" size="lg" className="h-14 flex-1" onClick={() => setActiveAction(null)}>Voltar</Button>
-             <Button size="lg" className="h-14 flex-1 shadow-[0_0_15px_rgba(0,255,102,0.4)] text-lg" onClick={submitTextSale} disabled={!textInputSale.trim()}>
-               Processar Venda
-             </Button>
-           </div>
-         </div>
-      </div>
-    );
   }
 
   if (activeAction === 'inventory') {
@@ -518,13 +468,9 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
       </div>
 
       {/* BARRA DE AÇÕES INFERIOR */}
-      <div className="grid grid-cols-4 gap-2 sm:gap-4 w-full mt-8 mb-4 z-10 sm:h-[130px] items-end justify-items-center">
+      <div className="grid grid-cols-3 gap-2 sm:gap-4 w-full mt-8 mb-4 z-10 sm:h-[130px] items-end justify-items-center">
         <button onClick={() => setActiveAction('scanner')} className="w-full max-w-[120px] h-[80px] sm:h-[100px] rounded-2xl bg-card text-foreground border border-border flex flex-col items-center justify-center gap-1 sm:gap-2 font-semibold text-[11px] sm:text-[14px] cursor-pointer transition-all hover:-translate-y-1 hover:border-primary/50 hover:bg-secondary/50 shadow-md active:scale-95 text-center leading-tight">
           <Camera size={20} strokeWidth={2.5} className="text-foreground/70" /> <span className="hidden sm:inline">Registrar</span><br className="hidden sm:block"/> Scanner
-        </button>
-
-        <button onClick={() => setActiveAction('text')} className="w-full max-w-[120px] h-[80px] sm:h-[100px] rounded-2xl bg-card text-foreground border border-border flex flex-col items-center justify-center gap-1 sm:gap-2 font-semibold text-[11px] sm:text-[14px] cursor-pointer transition-all hover:-translate-y-1 hover:border-primary/50 hover:bg-secondary/50 shadow-md active:scale-95 text-center leading-tight">
-          <Type size={20} strokeWidth={2.5} className="text-foreground/70" /> <span className="hidden sm:inline">Registrar</span><br className="hidden sm:block"/> Texto
         </button>
         
         {/* BIG AUDIO BUTTON */}
