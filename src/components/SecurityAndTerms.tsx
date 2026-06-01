@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 export default function SecurityAndTerms() {
   const [showCookiesBanner, setShowCookiesBanner] = useState(false);
   const [showLegalModal, setShowLegalModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'privacy' | 'terms' | 'cdc' | 'security'>('privacy');
+  const [activeTab, setActiveTab] = useState<'privacy' | 'terms' | 'cdc'>('privacy');
 
   useEffect(() => {
     // Verifica se já aceitou cookies
@@ -114,16 +114,6 @@ export default function SecurityAndTerms() {
           >
             Arrependimento / Reembolso (CDC - 7 dias)
           </button>
-          <span className="text-border/60">•</span>
-          <button 
-            onClick={() => {
-              setActiveTab('security');
-              setShowLegalModal(true);
-            }} 
-            className="hover:text-primary transition-colors underline decoration-dotted flex items-center gap-1"
-          >
-            <ShieldCheck className="w-3.5 h-3.5 text-primary" /> Central de Segurança
-          </button>
         </div>
       </div>
 
@@ -172,12 +162,6 @@ export default function SecurityAndTerms() {
                 className={`flex-1 py-3 px-4 min-w-[120px] text-center font-semibold transition-colors border-b-2 hover:bg-secondary/20 ${activeTab === 'cdc' ? 'border-[#ff9900] text-[#ff9900] bg-[#ff9900]/5' : 'border-transparent text-muted-foreground'}`}
               >
                 3. Direito Reembolso (CDC)
-              </button>
-              <button 
-                onClick={() => setActiveTab('security')}
-                className={`flex-1 py-3 px-4 min-w-[120px] text-center font-semibold transition-colors border-b-2 hover:bg-secondary/20 ${activeTab === 'security' ? 'border-primary text-primary bg-primary/5' : 'border-transparent text-muted-foreground'}`}
-              >
-                4. Proteção contra Hackers
               </button>
             </div>
 
@@ -252,32 +236,6 @@ export default function SecurityAndTerms() {
                 </div>
               )}
 
-              {activeTab === 'security' && (
-                <div id="tab-hacking-security" className="space-y-4">
-                  <div className="flex gap-2 items-center text-primary font-bold text-base mb-1">
-                    <ShieldCheck className="w-5 h-5" /> Proteção Robusta contra Hackers e Segurança do Servidor
-                  </div>
-                  <p>
-                    Nossa equipe implementou defesas estritas para proteger seu painel e os dados de clientes no CRM contra engenharia reversa e injeção de script (XSS e Clickjacking).
-                  </p>
-
-                  <h4 className="font-bold text-foreground">Defesas Técnicas Ativas no Sistema:</h4>
-                  <ul className="list-disc pl-5 space-y-2 text-muted-foreground text-xs">
-                    <li>
-                      <strong>Criptografia de Chaves e Armazenamento Local:</strong> Sua chave da API do Google Gemini fornecida na plataforma não transita por nenhum de nossos servidores backend. Ela é salva unicamente dentro da sandbox de segurança do seu próprio dispositivo (localStorage sob domínio TLS/SSL protegido).
-                    </li>
-                    <li>
-                      <strong>Injeção de Script Impossibilitada (Safe UI):</strong> O painel renderiza campos usando puramente estados higienizados de React, impedindo tentativas de injeção de scripts maliciosos nos campos de nome ou no input de CRM (<code className="bg-secondary px-1 text-primary rounded">HTML injection</code>).
-                    </li>
-                    <li>
-                      <strong>Isolamento de Banco de Dados:</strong> O Firebase está parametrizado de modo a apenas aceitar conexões e escritas de usuários autenticados cujos cabeçalhos informam o respectivo ID de criador.
-                    </li>
-                    <li>
-                      <strong>Defesa Console F12:</strong> Desativamos e higienizamos logs abusivos ou dados sensíveis que poderiam expor rotas internas do arquivo no painel de desenvolvedor.
-                    </li>
-                  </ul>
-                </div>
-              )}
             </div>
 
             {/* Footer do Modal */}
