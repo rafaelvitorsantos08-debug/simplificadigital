@@ -31,9 +31,25 @@ export default function InstallApp({ variant = 'button', className = '', onInsta
 
     checkStandalone();
 
+    // 1. Verifica se já foi capturado globalmente de forma precoce
+    if ((window as any).deferredPrompt) {
+      setDeferredPrompt((window as any).deferredPrompt);
+      setIsReadyToInstall(true);
+    }
+
+    // 2. Escuta se o evento global disparou após o carregamento inicial
+    const handleGlobalPromptAvailable = (e: any) => {
+      if (e.detail) {
+        setDeferredPrompt(e.detail);
+        setIsReadyToInstall(true);
+      }
+    };
+    window.addEventListener('pwa-prompt-available', handleGlobalPromptAvailable);
+
     // Captura o evento nativo de instalação do Chrome/Android/Edge/Windows Windows
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
+      (window as any).deferredPrompt = e;
       setDeferredPrompt(e);
       setIsReadyToInstall(true);
     };
@@ -44,6 +60,7 @@ export default function InstallApp({ variant = 'button', className = '', onInsta
     const handleAppInstalled = () => {
       setIsReadyToInstall(false);
       setDeferredPrompt(null);
+      (window as any).deferredPrompt = null;
       setIsStandalone(true);
       if (onInstalled) onInstalled();
       alert('Simplifica instalado com sucesso!');
@@ -96,6 +113,7 @@ export default function InstallApp({ variant = 'button', className = '', onInsta
     detectDevice();
 
     return () => {
+      window.removeEventListener('pwa-prompt-available', handleGlobalPromptAvailable);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
     };
