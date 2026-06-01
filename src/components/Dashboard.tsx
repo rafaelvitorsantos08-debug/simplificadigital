@@ -692,7 +692,7 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
           <div className="flex items-center gap-3 bg-secondary/50 px-4 py-2 rounded-full border border-border/40 shadow-sm backdrop-blur-sm">
             <div className="w-2 h-2 sm:w-3 sm:h-3 bg-primary rounded-full shadow-[0_0_8px_rgba(0,255,102,0.8)]"></div>
             <span className="font-medium text-xs sm:text-sm text-foreground/80 max-w-[100px] sm:max-w-none truncate">{userData?.businessName || user.displayName}</span>
-            <button onClick={logout} className="text-xs text-destructive hover:underline ml-2 hidden sm:block">Sair</button>
+            <button onClick={logout} className="text-xs text-destructive hover:underline ml-2">Sair</button>
           </div>
         </div>
       </header>

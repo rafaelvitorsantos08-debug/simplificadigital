@@ -1,47 +1,57 @@
-// Service Worker básico para permitir a instalação do PWA (offline-ready)
-const CACHE_NAME = 'simplifica-v1';
-const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/icon.png'
-];
+// Service Worker dinâmico e seguro para PWA sem bloqueio de cache (evita tela branca por arquivos desatualizados/hashes antigos)
+const CACHE_NAME = 'simplifica-pwa-v2';
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
-    }).then(() => self.skipWaiting())
-  );
+  self.skipWaiting();
 });
 
+// Força a limpeza de caches antigos no momento de ativação para corrigir telas pretas/brancas imediatamente
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            return caches.delete(cache);
-          }
+          return caches.delete(cache);
         })
       );
     }).then(() => self.clients.claim())
   );
 });
 
+// Estratégia Network-First simplificada com exclusão de cache para HTML/JS dinâmicos
+// Isso garante que o app sempre carregue a versão mais nova do servidor, evitando o erro de arquivo JS com hash antigo (404)
 self.addEventListener('fetch', (event) => {
-  // Ignora chamadas para APIs de terceiros ou Firebase
-  if (event.request.url.startsWith(self.location.origin)) {
-    event.respondWith(
-      caches.match(event.request).then((cachedResponse) => {
-        if (cachedResponse) {
-          return cachedResponse;
+  const url = new Date(event.request.url);
+
+  // Ignorar requisições não-GET, APIs do Firebase, autenticação ou uploads de imagens
+  if (event.request.method !== 'GET' || !event.request.url.startsWith(self.location.origin)) {
+    return;
+  }
+
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        // Se a resposta for válida, opcionalmente salvamos apenas os ícones estáticos estruturais sem risco de quebrar o index.html principal
+        if (response.status === 200 && (event.request.url.includes('/icon.png') || event.request.url.includes('/manifest.json'))) {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
         }
-        return fetch(event.request).catch(() => {
-          // Fallback se estiver offline
-          return caches.match('/index.html');
+        return response;
+      })
+      .catch(() => {
+        // Fallback offline apenas para recursos armazenados, senão tenta resolver com cache local temporário
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          // Caso contrário, tenta responder o básico
+          return new Response('Sem conexão com a internet.', {
+            status: 503,
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+          });
         });
       })
-    );
-  }
+  );
 });
