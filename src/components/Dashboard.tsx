@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Mic, BarChart3, TrendingUp, PackagePlus, UserPlus, X, Phone, StopCircle, RefreshCcw, Loader2, CheckCircle2, Pencil, Check, Image as ImageIcon } from 'lucide-react';
 import { Button } from './ui/button';
 import { processAudioSale, processPhotoSale } from '../services/geminiService';
@@ -21,8 +21,17 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Dashboard Sales State (Simulated for this session)
+  // Dashboard Sales State
   const [todayTotal, setTodayTotal] = useState(0);
+
+  // States for stock validation and confirmation
+  const [inventoryItems, setInventoryItems] = useState<any[]>([]);
+  const [pendingSale, setPendingSale] = useState<any | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<string>('');
+  const [warningMessage, setWarningMessage] = useState<string | null>(null);
+  const [confirmPriceDiff, setConfirmPriceDiff] = useState<boolean>(false);
+  const [isDoubtState, setIsDoubtState] = useState<boolean>(false);
+  const [priceDiffChecked, setPriceDiffChecked] = useState<boolean>(false);
 
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -38,6 +47,11 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
     setSaleResult(null);
     setIsProcessing(false);
     setIsRecording(false);
+    setPendingSale(null);
+    setWarningMessage(null);
+    setConfirmPriceDiff(false);
+    setIsDoubtState(false);
+    setPriceDiffChecked(false);
   };
 
   const handleQRScan = async (decodedText: string) => {
@@ -82,29 +96,63 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
     }
   };
 
+  // 1. Carregar inventário para validações
   useEffect(() => {
-    // Fetch today's sales
+    const fetchInventory = async () => {
+      try {
+        const q = query(collection(db, 'inventory'), where('userId', '==', user.uid));
+        const snapshot = await getDocs(q);
+        const items = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setInventoryItems(items);
+      } catch (e) {
+        console.error("Erro ao carregar estoque para verificação:", e);
+      }
+    };
+    if (user?.uid) {
+      fetchInventory();
+    }
+  }, [user?.uid]);
+
+  // 2. Carregar total de vendas do dia (com filtragem client-side robusta, sem erro de índice composto)
+  useEffect(() => {
     const fetchTodaySales = async () => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       try {
         const q = query(
           collection(db, 'sales'),
-          where('userId', '==', user.uid),
-          where('createdAt', '>=', today)
+          where('userId', '==', user.uid)
         );
         const snapshot = await getDocs(q);
         let total = 0;
-        snapshot.forEach(doc => {
-          total += Number(doc.data().valor || 0);
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          let createdAtDate: Date | null = null;
+          if (data.createdAt) {
+            if (typeof data.createdAt.toDate === 'function') {
+              createdAtDate = data.createdAt.toDate();
+            } else if (data.createdAt instanceof Date) {
+              createdAtDate = data.createdAt;
+            } else {
+              createdAtDate = new Date(data.createdAt);
+            }
+          }
+          if (createdAtDate && createdAtDate >= today) {
+            total += Number(data.valor || 0);
+          }
         });
         setTodayTotal(total);
       } catch(e) {
         console.error("Error fetching sales: ", e);
       }
     };
-    fetchTodaySales();
-  }, [user.uid]);
+    if (user?.uid) {
+      fetchTodaySales();
+    }
+  }, [user?.uid]);
 
   const saveSaleToDB = async (saleData: any) => {
     try {
@@ -113,21 +161,15 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
 
       // Find in inventory first
       if (saleData.produto) {
-        const q = query(collection(db, 'inventory'), where('userId', '==', user.uid));
-        const snapshot = await getDocs(q);
-        const searchName = saleData.produto.toLowerCase();
-        
-        snapshot.forEach(d => {
-          const invName = (d.data().name || '').toLowerCase();
-          if (invName === searchName) {
-            targetDoc = d;
-          } else if (invName.includes(searchName) || searchName.includes(invName)) {
-            if (!targetDoc) targetDoc = d;
-          }
+        const normalizedSearch = String(saleData.produto).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const matched = inventoryItems.find(item => {
+          const normName = (item.name || '').toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          return normName === normalizedSearch || normName.includes(normalizedSearch) || normalizedSearch.includes(normName);
         });
 
-        if (targetDoc) {
-          costPrice = targetDoc.data().costPrice || 0;
+        if (matched) {
+          targetDoc = { id: matched.id, ...matched };
+          costPrice = matched.costPrice || 0;
         }
       }
 
@@ -144,16 +186,151 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
 
       // Decrease from inventory
       if (targetDoc) {
-          const currentQty = targetDoc.data().qty || 0;
+          const currentQty = targetDoc.qty || 0;
           if (currentQty > 0) {
             await updateDoc(doc(db, 'inventory', targetDoc.id), {
               qty: currentQty - 1
             });
+            // Update local state list
+            setInventoryItems(prev => prev.map(item => 
+              item.id === targetDoc.id ? { ...item, qty: currentQty - 1 } : item
+            ));
           }
       }
 
     } catch(e) {
       console.error("Erro ao salvar venda/estoque:", e);
+    }
+  };
+
+  // Funções adicionais para fluxo de venda por áudio vinculada estritamente ao estoque com tela de confirmação
+  const analyzeAudioSale = (aiData: any) => {
+    const aiProductName = String(aiData.produto || '').trim();
+    const aiVal = Number(aiData.valor || 0);
+    
+    // Normalização básica para encontrar correspondência do inventário
+    const normalizedAiName = aiProductName.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+    const exactMatch = inventoryItems.find(item => {
+      const normalizedInvName = (item.name || '').toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      return normalizedInvName === normalizedAiName;
+    });
+    
+    let closestMatch = exactMatch;
+    if (!closestMatch) {
+      closestMatch = inventoryItems.find(item => {
+        const normalizedInvName = (item.name || '').toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        return normalizedInvName.includes(normalizedAiName) || normalizedAiName.includes(normalizedInvName);
+      });
+    }
+    
+    if (!closestMatch) {
+      // Dificuldade de identificar no estoque (caso de dúvidas) -> Abre janela de confirmação de item
+      setPendingSale({
+        ...aiData,
+        source: 'audio'
+      });
+      setSelectedProductId(''); // Nulo para obrigar seleção ou manual
+      setIsDoubtState(true);
+      setWarningMessage(`A inteligência artificial não identificou "${aiProductName}" no estoque.`);
+      setConfirmPriceDiff(false);
+      setPriceDiffChecked(false);
+      setActiveAction('confirm_sale');
+    } else {
+      // Encontrou um produto correspondente no estoque
+      const invPrice = Number(closestMatch.price || 0);
+      
+      if (Math.abs(invPrice - aiVal) > 0.01) {
+        // Encontrou o produto mas com preço diferente -> Abre janela perguntando se tem certeza
+        setPendingSale({
+          ...aiData,
+          matchedProductId: closestMatch.id,
+          originalInventoryPrice: invPrice,
+          source: 'audio'
+        });
+        setSelectedProductId(closestMatch.id);
+        setIsDoubtState(false);
+        setWarningMessage(`O preço de "${closestMatch.name}" no estoque é R$ ${invPrice.toFixed(2).replace('.', ',')}, mas a venda foi gravada por R$ ${aiVal.toFixed(2).replace('.', ',')}.`);
+        setConfirmPriceDiff(true);
+        setPriceDiffChecked(false);
+        setActiveAction('confirm_sale');
+      } else {
+        // Perfeita correspondência (nome e preço batem sem dúvidas) -> Salva diretamente
+        confirmAndSaveSale(aiData, closestMatch.id, false);
+      }
+    }
+  };
+
+  const handleProductSelectChange = (productId: string) => {
+    setSelectedProductId(productId);
+    if (!productId || productId === 'manual') {
+      setWarningMessage(null);
+      setConfirmPriceDiff(false);
+      setPriceDiffChecked(false);
+      return;
+    }
+    
+    const targetProduct = inventoryItems.find(item => item.id === productId);
+    if (targetProduct) {
+      const invPrice = Number(targetProduct.price || 0);
+      const saleVal = Number(pendingSale?.valor || 0);
+      
+      if (Math.abs(invPrice - saleVal) > 0.01) {
+         setWarningMessage(`Preço divergente: O preço no estoque é R$ ${invPrice.toFixed(2).replace('.', ',')}, mas o valor informado é R$ ${saleVal.toFixed(2).replace('.', ',')}.`);
+         setConfirmPriceDiff(true);
+         setPriceDiffChecked(false);
+      } else {
+         setWarningMessage(null);
+         setConfirmPriceDiff(false);
+         setPriceDiffChecked(false);
+      }
+    }
+  };
+
+  const confirmAndSaveSale = async (saleData: any, productId: string | null, forceDiffPrice: boolean) => {
+    setIsProcessing(true);
+    try {
+      let costPrice = 0;
+      let targetProduct = inventoryItems.find(item => item.id === productId);
+      
+      if (targetProduct) {
+        costPrice = Number(targetProduct.costPrice || 0);
+        
+        // Reduzir do estoque se existir quantidade
+        const currentQty = Number(targetProduct.qty || 0);
+        if (currentQty > 0) {
+          await updateDoc(doc(db, 'inventory', targetProduct.id), {
+            qty: currentQty - 1
+          });
+          // Atualizar lista local
+          setInventoryItems(prev => prev.map(item => 
+            item.id === targetProduct?.id ? { ...item, qty: currentQty - 1 } : item
+          ));
+        }
+      }
+
+      const finalSale = {
+        produto: targetProduct ? targetProduct.name : saleData.produto,
+        valor: Number(saleData.valor || 0),
+        pagamento: saleData.pagamento || 'Dinheiro',
+        custo: costPrice,
+        lucro: Number(saleData.valor || 0) - costPrice,
+        userId: user.uid,
+        createdAt: serverTimestamp()
+      };
+
+      await addDoc(collection(db, 'sales'), finalSale);
+      
+      setTodayTotal(prev => prev + Number(saleData.valor || 0));
+      setSaleResult(finalSale);
+      
+    } catch (e) {
+      console.error("Erro ao registrar venda:", e);
+      alert("Erro ao salvar venda.");
+    } finally {
+      setIsProcessing(false);
+      setPendingSale(null);
+      setWarningMessage(null);
     }
   };
 
@@ -172,13 +349,11 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
         mediaRecorderRef.current?.stream.getTracks().forEach(t => t.stop());
         
         try {
-          const q = query(collection(db, 'inventory'), where('userId', '==', user.uid));
-          const snapshot = await getDocs(q);
-          const inventoryNames = snapshot.docs.map(d => d.data().name);
-
+          const inventoryNames = inventoryItems.map(d => d.name);
           const data = await processAudioSale(audioBlob, inventoryNames);
-          setSaleResult(data);
-          await saveSaleToDB(data);
+          
+          setIsProcessing(false);
+          analyzeAudioSale(data);
         } catch (e: any) {
           alert("Erro na IA: " + e.message);
         } finally {
@@ -330,6 +505,117 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
 
   if (activeAction === 'reports') {
     return <ReportsDashboard user={user} onBack={() => setActiveAction(null)} />;
+  }
+
+  if (activeAction === 'confirm_sale' && pendingSale) {
+    const selectedProduct = inventoryItems.find(item => item.id === selectedProductId);
+    
+    return (
+      <div className="min-h-screen bg-background text-foreground flex flex-col p-6 sm:p-10 max-w-lg mx-auto items-center justify-center">
+        <div className="w-full bg-card border border-border rounded-[32px] p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+          
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-primary">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-xl font-extrabold tracking-tight">Revisar Venda</h2>
+              <p className="text-xs text-muted-foreground">Confirme os detalhes detectados pela inteligência artificial.</p>
+            </div>
+          </div>
+
+          <div className="space-y-4 mb-6">
+            <div className="bg-secondary/40 rounded-2xl p-4 border border-border/40">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-2">Identificado pela IA</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="text-xs text-muted-foreground block">Produto / Serviço</span>
+                  <span className="font-bold text-foreground break-all">{pendingSale.produto}</span>
+                </div>
+                <div>
+                  <span className="text-xs text-muted-foreground block">Valor do Áudio</span>
+                  <span className="font-bold text-primary">R$ {Number(pendingSale.valor || 0).toFixed(2).replace('.', ',')}</span>
+                </div>
+              </div>
+              <div className="mt-2 border-t border-border/20 pt-2 text-xs">
+                <span className="text-muted-foreground">Forma de Pagamento: </span>
+                <span className="font-semibold text-foreground">{pendingSale.pagamento || 'Não especificado'}</span>
+              </div>
+            </div>
+
+            {/* ASSOCIAÇÃO COM ESTOQUE */}
+            <div className="space-y-2">
+              <label htmlFor="stock-selector" className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">Vincular ao estoque:</label>
+              <select
+                id="stock-selector"
+                value={selectedProductId}
+                onChange={(e) => handleProductSelectChange(e.target.value)}
+                className="w-full h-12 bg-background border border-border rounded-xl px-4 text-sm font-medium focus:outline-none focus:border-primary transition-colors text-foreground"
+              >
+                <option value="manual">⚠️ Registrar como venda avulsa (Sem controle de estoque)</option>
+                <optgroup label="Selecione o produto correspondente se houver dúvida:">
+                  {inventoryItems.map(item => (
+                    <option key={item.id} value={item.id}>
+                      {item.name} (Qtd: {item.qty} | R$ {Number(item.price || 0).toFixed(2)})
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+              {isDoubtState && !selectedProductId && (
+                <p className="text-[11px] text-[#FFB800] mt-1 bg-[#FFB800]/10 p-2 rounded-lg border border-[#FFB800]/20 font-medium font-sans">
+                  ⚠️ A IA teve dificuldades de identificar o item exato. Caso queira controlar o estoque deste item, por favor escolha-o na lista acima.
+                </p>
+              )}
+            </div>
+
+            {/* SE VISÍVEL, MOSTRE AVISOS OU COMENTÁRIOS DE ERRO */}
+            {warningMessage && (
+              <div className="bg-[#FFB800]/10 border border-[#FFB800]/20 text-[#FFB800] p-4 rounded-2xl text-xs space-y-2 font-sans">
+                <p className="font-bold">Aviso sobre preço ou item:</p>
+                <p>{warningMessage}</p>
+                
+                {confirmPriceDiff && (
+                  <div className="flex items-start gap-2 pt-2 border-t border-[#FFB800]/20">
+                    <input
+                      id="price-diff-checkbox"
+                      type="checkbox"
+                      checked={priceDiffChecked}
+                      onChange={(e) => setPriceDiffChecked(e.target.checked)}
+                      className="mt-0.5 rounded border-[#FFB800] text-[#FFB800] focus:ring-0 cursor-pointer"
+                    />
+                    <label htmlFor="price-diff-checkbox" className="font-semibold cursor-pointer select-none leading-tight">
+                      Selecione aqui para confirmar que tem certeza e deseja reduzir o item do estoque.
+                    </label>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* BOTÕES DE AÇÃO */}
+          <div className="flex flex-col gap-2">
+            <Button
+              size="lg"
+              id="confirm-sale-submit"
+              disabled={confirmPriceDiff && !priceDiffChecked}
+              className={`w-full h-12 text-sm font-bold shadow-lg shadow-primary/10 ${confirmPriceDiff && !priceDiffChecked ? 'opacity-50 cursor-not-allowed' : ''}`}
+              onClick={() => confirmAndSaveSale(pendingSale, selectedProductId === 'manual' ? null : selectedProductId, priceDiffChecked)}
+            >
+              Confirmar e Registrar Venda
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              className="w-full h-12 text-sm text-muted-foreground border-border bg-transparent hover:bg-secondary/40"
+              onClick={closeAction}
+            >
+              Cancelar e Descartar
+            </Button>
+          </div>
+
+        </div>
+      </div>
+    );
   }
 
   // --- DASHBOARD PRINCIPAL ---

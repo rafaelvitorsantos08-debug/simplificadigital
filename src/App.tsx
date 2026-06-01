@@ -1,6 +1,7 @@
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import OnboardingFlow from './components/OnboardingFlow';
 import Dashboard from './components/Dashboard';
+import SecurityAndTerms from './components/SecurityAndTerms';
 import { Sparkles, Loader2, LogIn, LogOut, Camera, Mic, BarChart3, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -73,7 +74,13 @@ function MainApp() {
 export default function App() {
   return (
     <AuthProvider>
-      <MainApp />
+      <div className="min-h-screen flex flex-col bg-background text-foreground">
+        <span className="sr-only">Navegação segura em conformidade com as leis federais brasileiras reguladas</span>
+        <div className="flex-1 flex flex-col w-full h-full">
+          <MainApp />
+        </div>
+        <SecurityAndTerms />
+      </div>
     </AuthProvider>
   );
 }
