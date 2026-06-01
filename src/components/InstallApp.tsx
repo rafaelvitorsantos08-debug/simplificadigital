@@ -124,17 +124,29 @@ export default function InstallApp({ variant = 'button', className = '', onInsta
     return null;
   }
 
+  // No Windows, Mac, Linux e Android, nós SÓ exibimos o botão/banner se o prompt nativo estiver de fato pronto para ser acionado.
+  // No iOS, como não existe antes-install-prompt nativo e exige processo manual via Safari, mostramos sempre para poder guiar o usuário.
+  const isInstallSupported = deviceInfo.os === 'ios' || isReadyToInstall || (window as any).deferredPrompt;
+
+  if (!isInstallSupported) {
+    return null;
+  }
+
   const handleInstallClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     
-    // Se o evento nativo beforeinstallprompt estiver disponível, dispara a instalação nativa do Windows/Android
-    if (deferredPrompt) {
+    // Tenta obter o prompt de instalação a partir do estado ou do escopo global da janela
+    const activePrompt = deferredPrompt || (window as any).deferredPrompt;
+    
+    // Se o evento nativo beforeinstallprompt estiver disponível, dispara a instalação nativa do Windows/Android sem intermediários
+    if (activePrompt) {
       try {
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
+        await activePrompt.prompt();
+        const { outcome } = await activePrompt.userChoice;
         console.log(`Escolha do usuário sobre instalação: ${outcome}`);
         if (outcome === 'accepted') {
           setDeferredPrompt(null);
+          (window as any).deferredPrompt = null;
           setIsReadyToInstall(false);
           setIsStandalone(true);
         }
@@ -142,8 +154,13 @@ export default function InstallApp({ variant = 'button', className = '', onInsta
         console.error('Erro ao acionar prompt de instalação de PWA:', err);
       }
     } else {
-      // Se não houver evento nativo direto, abrimos o modal explicativo e inteligente (ex: iOS, Firefox ou navegadores customizados)
-      setShowInstructionsModal(true);
+      // Se for iOS, abre o modal explicativo
+      if (deviceInfo.os === 'ios') {
+        setShowInstructionsModal(true);
+      } else {
+        // Fallback rápido se não houver prompt mas o dispositivo disser que suporta (ex: lag rápido)
+        alert('Preparando módulo de instalação do navegador... Por favor, tente novamente em 2 segundos usando Chrome, Edge ou Brave.');
+      }
     }
   };
 
