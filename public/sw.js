@@ -21,8 +21,6 @@ self.addEventListener('activate', (event) => {
 // Estratégia Network-First simplificada com exclusão de cache para HTML/JS dinâmicos
 // Isso garante que o app sempre carregue a versão mais nova do servidor, evitando o erro de arquivo JS com hash antigo (404)
 self.addEventListener('fetch', (event) => {
-  const url = new Date(event.request.url);
-
   // Ignorar requisições não-GET, APIs do Firebase, autenticação ou uploads de imagens
   if (event.request.method !== 'GET' || !event.request.url.startsWith(self.location.origin)) {
     return;

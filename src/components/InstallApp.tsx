@@ -311,8 +311,31 @@ export default function InstallApp({ variant = 'button', className = '', onInsta
               ) : (
                 /* INSTRUÇÕES PARA DESKTOP CASO NÃO COMPATÍVEL OU SEM PROMPT */
                 <div className="space-y-4">
-                  <div className="p-3 bg-secondary/30 rounded-xl border border-border/40 text-xs text-muted-foreground mb-4">
-                    Para computadores (Windows, Mac ou Linux), o suporte de instalação é garantido no Chrome, Edge ou Brave.
+                  <div className="p-3 bg-secondary/30 rounded-2xl border border-border/40 text-xs text-muted-foreground">
+                    📢 O Windows permite instalar o app silenciosamente. Se o prompt automático não disparar, use o atalho direto na barra de endereços do seu navegador Chrome, Edge ou Brave:
+                  </div>
+
+                  {/* Mockup visual da barra de endereços */}
+                  <div className="bg-[#18181b] border border-zinc-800 rounded-2xl p-3 font-sans shadow-md">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="flex gap-1">
+                        <div className="w-2.5 h-2.5 rounded-full bg-zinc-700"></div>
+                        <div className="w-2.5 h-2.5 rounded-full bg-zinc-700"></div>
+                        <div className="w-2.5 h-2.5 rounded-full bg-zinc-700"></div>
+                      </div>
+                      <div className="h-1.5 bg-zinc-800 rounded w-20"></div>
+                    </div>
+                    <div className="bg-[#27272a] rounded-xl px-3 py-2 flex items-center justify-between text-zinc-400 text-xs font-mono border border-zinc-700/40">
+                      <span className="truncate text-zinc-300">simplificadigital...</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {/* Indicador interativo */}
+                        <div className="flex items-center gap-1 text-[11px] text-[#00FF66] font-extrabold bg-[#00FF66]/10 px-2 py-0.5 rounded-lg border border-[#00FF66]/30 animate-pulse">
+                          <Download size={12} className="shrink-0" />
+                          <span>INSTALAR APP</span>
+                        </div>
+                        <span className="text-zinc-600">⭐</span>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="space-y-4">
@@ -321,9 +344,9 @@ export default function InstallApp({ variant = 'button', className = '', onInsta
                         1
                       </div>
                       <div className="text-sm">
-                        <p className="font-semibold text-foreground">Procure pelo ícone na barra de endereços</p>
+                        <p className="font-semibold text-foreground">Clique no ícone de Instalar</p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          No topo do navegador, à direita da barra de endereços, clique no ícone de computador com uma seta para baixo (ou um símbolo de +).
+                          No canto superior direito da barra de navegação (conforme ilustrado acima), clique no ícone de monitor com seta ou no botão <strong className="text-primary">"+" (Instalar)</strong>.
                         </p>
                       </div>
                     </div>
@@ -333,9 +356,9 @@ export default function InstallApp({ variant = 'button', className = '', onInsta
                         2
                       </div>
                       <div className="text-sm">
-                        <p className="font-semibold text-foreground">Confirme Instalar</p>
+                        <p className="font-semibold text-foreground">Confirme e Comece a Usar</p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Clique em <strong>Instalar</strong> no prompt que surgir. O desktop criará um atalho e abrirá o aplicativo de forma standalone imediatamente.
+                          Clique em <strong>Instalar</strong> no menu pop-up. O app abrirá em tela cheia imediatamente e criará um atalho de acesso rápido no seu Desktop!
                         </p>
                       </div>
                     </div>
