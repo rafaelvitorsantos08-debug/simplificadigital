@@ -10,6 +10,7 @@ import InventoryManager from './InventoryManager';
 import ClientManager from './ClientManager';
 import ReportsDashboard from './ReportsDashboard';
 import QRScanner from './QRScanner';
+import InstallApp from './InstallApp';
 
 export default function Dashboard({ userData, user, logout, updateUserData }: any) {
   const [activeAction, setActiveAction] = useState<string | null>(null);
@@ -153,6 +154,38 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
       fetchTodaySales();
     }
   }, [user?.uid]);
+
+  // 3. Efeito de interceptação inteligente do botão Voltar / Gesto nativo do Celular (Ações do APP)
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      // Se houver algum painel ativo aberto (como crm, estoque, relatórios ou confirmação de venda),
+      // fecha ele e limpa estados em vez de fechar o app ou navegar para fora!
+      if (activeAction !== null) {
+        event.preventDefault();
+        closeAction();
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    // Se entramos em uma ação específica (Estoque, CRM, Relatórios, Leitor, etc.)
+    if (activeAction !== null) {
+      // Registra a mudança no histórico do navegador se ainda não estiver registrado
+      if (!window.history.state || window.history.state.action !== activeAction) {
+        window.history.pushState({ action: activeAction }, '');
+      }
+    } else {
+      // Se voltamos para a tela principal e o histórico ainda possui alguma ação registrada,
+      // retrocede para manter o ponteiro de histórico limpo e sincronizado
+      if (window.history.state && window.history.state.action) {
+        window.history.back();
+      }
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [activeAction]);
 
   const saveSaleToDB = async (saleData: any) => {
     try {
@@ -651,10 +684,16 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
             </div>
           )}
         </div>
-        <div className="flex items-center gap-3 bg-secondary/50 px-4 py-2 rounded-full border border-border/40 shadow-sm backdrop-blur-sm">
-          <div className="w-2 h-2 sm:w-3 sm:h-3 bg-primary rounded-full shadow-[0_0_8px_rgba(0,255,102,0.8)]"></div>
-          <span className="font-medium text-xs sm:text-sm text-foreground/80 max-w-[100px] sm:max-w-none truncate">{userData?.businessName || user.displayName}</span>
-          <button onClick={logout} className="text-xs text-destructive hover:underline ml-2 hidden sm:block">Sair</button>
+        <div className="flex items-center gap-2">
+          {/* Botões adaptativos de instalação do app (PWA) */}
+          <InstallApp variant="button" className="hidden sm:flex" />
+          <InstallApp variant="icon" className="flex sm:hidden bg-secondary/50 border border-border/40 rounded-xl" />
+
+          <div className="flex items-center gap-3 bg-secondary/50 px-4 py-2 rounded-full border border-border/40 shadow-sm backdrop-blur-sm">
+            <div className="w-2 h-2 sm:w-3 sm:h-3 bg-primary rounded-full shadow-[0_0_8px_rgba(0,255,102,0.8)]"></div>
+            <span className="font-medium text-xs sm:text-sm text-foreground/80 max-w-[100px] sm:max-w-none truncate">{userData?.businessName || user.displayName}</span>
+            <button onClick={logout} className="text-xs text-destructive hover:underline ml-2 hidden sm:block">Sair</button>
+          </div>
         </div>
       </header>
 

@@ -2,6 +2,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import OnboardingFlow from './components/OnboardingFlow';
 import Dashboard from './components/Dashboard';
 import SecurityAndTerms from './components/SecurityAndTerms';
+import InstallApp from './components/InstallApp';
 import { Sparkles, Loader2, LogIn, LogOut, Camera, Mic, BarChart3, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -47,9 +48,12 @@ function MainApp() {
             <LogIn className="mr-2 w-5 h-5" /> Entrar com Google
           </Button>
           
-          <Button onClick={loginWithGoogleRedirect} variant="outline" size="sm" className="w-full text-muted-foreground hover:bg-secondary/20">
+          <Button onClick={loginWithGoogleRedirect} variant="outline" size="sm" className="w-full text-muted-foreground hover:bg-secondary/20 mb-6">
             Dificuldade no login? Entrar via aba na página
           </Button>
+
+          {/* Banner de atalho amigável para instalar o aplicativo no celular ou computador */}
+          <InstallApp variant="banner" className="text-left mt-4" />
         </div>
       </div>
     );
