@@ -124,17 +124,23 @@ export default function InstallApp({ variant = 'button', className = '', onInsta
     return null;
   }
 
-  // No Windows, Mac, Linux e Android, nós SÓ exibimos o botão/banner se o prompt nativo estiver de fato pronto para ser acionado.
-  // No iOS, como não existe antes-install-prompt nativo e exige processo manual via Safari, mostramos sempre para poder guiar o usuário.
-  const isInstallSupported = deviceInfo.os === 'ios' || isReadyToInstall || (window as any).deferredPrompt;
-
-  if (!isInstallSupported) {
-    return null;
-  }
+  // Sempre exibimos o botão ou o banner de instalação se não estiver rodando no modo standalone instalado.
+  // Isso garante que o usuário sempre tenha acesso visual ao recurso, incentivando o engajamento na página inicial.
+  // Se o navegador for compatível, o botão acionará a instalação nativa do Windows/Android de imediato.
 
   const handleInstallClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     
+    // Verifica se o aplicativo está rodando dentro de um iframe (como o painel inferior ou superior de preview do desenvolvedor)
+    // O navegador possui políticas de segurança rígidas e BLOQUEIA os prompts de instalação PWA dentro de iframes.
+    const isInsideIframe = window.self !== window.top;
+    if (isInsideIframe) {
+      if (confirm('A instalação direta de PWA é bloqueada pelo navegador por motivos de segurança dentro de painéis de visualização (iframes).\n\nGostaria de abrir o aplicativo de forma limpa em tela cheia para poder clicar no botão e instalar o Simplifica como App nativo imediatamente?')) {
+        window.open(window.location.href, '_blank');
+      }
+      return;
+    }
+
     // Tenta obter o prompt de instalação a partir do estado ou do escopo global da janela
     const activePrompt = deferredPrompt || (window as any).deferredPrompt;
     
@@ -158,8 +164,16 @@ export default function InstallApp({ variant = 'button', className = '', onInsta
       if (deviceInfo.os === 'ios') {
         setShowInstructionsModal(true);
       } else {
-        // Fallback rápido se não houver prompt mas o dispositivo disser que suporta (ex: lag rápido)
-        alert('Preparando módulo de instalação do navegador... Por favor, tente novamente em 2 segundos usando Chrome, Edge ou Brave.');
+        // Se no Windows ou Android o prompt não disparou automaticamente do navegador por ser o load imediato
+        const isStandaloneCheck = window.matchMedia('(display-mode: standalone)').matches;
+        if (isStandaloneCheck) {
+          alert('Excelente! O Simplifica já está instalado e rodando em modo Aplicativo de forma nativa no seu dispositivo.');
+        } else {
+          // No Windows/Android sem prompt ativo, mostramos um aviso direto, focado, educado e perguntamos se ele quer ver as instruções Visuais
+          if (confirm('O instalador nativo do seu navegador está se preparando. Caso o pop-up automático demore, você pode instalar instantaneamente com 1 clique usando o ícone "+" ou de computador ("Instalar") que aparece no topo direito da barra de endereços do seu navegador Chrome/Edge.\n\nGostaria de ver o guia ilustrado com a indicação exata de onde fica esse botão de instalação rápida?')) {
+            setShowInstructionsModal(true);
+          }
+        }
       }
     }
   };
