@@ -13,26 +13,6 @@ export default function SecurityAndTerms() {
     if (!cookiesAccepted) {
       setShowCookiesBanner(true);
     }
-
-    // Configuração de segurança de console silencioso/defensivo contra tentativas de F12 maliciosas (XSS)
-    const handleConsoleWarning = () => {
-      if (process.env.NODE_ENV === 'production' || !window.location.hostname.includes('localhost')) {
-        // Silencia logs de debug no console em produção e exibe aviso de segurança profissional
-        console.clear();
-        console.log(
-          '%c🛑 ATENÇÃO: ÁREA SEGURA PARA PROPRIETÁRIOS',
-          'color: #ff0055; font-size: 24px; font-weight: bold; font-family: sans-serif;'
-        );
-        console.log(
-          '%cEste console de ferramentas de desenvolvedor é uma área restrita. Inserir qualquer script ou código desconhecido aqui pode dar acesso a hackers aos seus dados e vendas. Nunca execute comandos fornecidos por terceiros.',
-          'color: #ffffff; font-size: 14px; font-family: sans-serif; line-height: 1.5; background: #222; padding: 10px; border-radius: 8px;'
-        );
-      }
-    };
-    
-    // Pequeno delay para garantir inicialização limpa antes de rodar segurança do console
-    const timer = setTimeout(handleConsoleWarning, 2000);
-    return () => clearTimeout(timer);
   }, []);
 
   const handleAcceptCookies = () => {
