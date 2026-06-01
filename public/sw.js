@@ -32,7 +32,7 @@ self.addEventListener('fetch', (event) => {
     fetch(event.request)
       .then((response) => {
         // Se a resposta for válida, opcionalmente salvamos apenas os ícones estáticos estruturais sem risco de quebrar o index.html principal
-        if (response.status === 200 && (event.request.url.includes('/icon.png') || event.request.url.includes('/manifest.json'))) {
+        if (response.status === 200 && (event.request.url.includes('/icon') || event.request.url.includes('/manifest.json'))) {
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseToCache);
