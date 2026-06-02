@@ -14,6 +14,7 @@ interface UserData {
   logoUrl?: string; // from Dashboard
   planType?: 'free' | 'plus' | 'pro';
   planExpiresAt?: number;
+  isAdmin?: boolean;
 }
 
 interface AuthContextType {
@@ -56,13 +57,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const docSnap = await getDoc(userRef);
           
           if (docSnap.exists()) {
-            setUserData(docSnap.data() as UserData);
+            let data = docSnap.data() as UserData;
+            // -- DEFININDO ADMIN GERAL --
+            if (currentUser.email === 'rafaelvitorsantos08@gmail.com') {
+              if (data.planType !== 'pro' || !data.isAdmin) {
+                 const updates = { planType: 'pro' as const, isAdmin: true };
+                 await setDoc(userRef, updates, { merge: true });
+                 data = { ...data, ...updates };
+              }
+            }
+            setUserData(data);
           } else {
             const newUserData: UserData = {
               uid: currentUser.uid,
               name: currentUser.displayName || 'Usuário',
               email: currentUser.email || '',
               setupFinished: false,
+              planType: currentUser.email === 'rafaelvitorsantos08@gmail.com' ? 'pro' : 'free',
+              isAdmin: currentUser.email === 'rafaelvitorsantos08@gmail.com'
             };
             await setDoc(userRef, {
               ...newUserData,
