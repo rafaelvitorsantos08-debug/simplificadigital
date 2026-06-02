@@ -1,15 +1,90 @@
-import React from 'react';
-import { ArrowLeft, Crown, Check, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowLeft, Crown, Check, AlertCircle, Zap } from 'lucide-react';
 import { Button } from './ui/button';
 import { useLimits } from '../hooks/useLimits';
 
 export default function PlanStatus({ onBack }: { onBack: () => void }) {
   const { activePlanType, limits, salesTodayCount, inventoryCount, clientsTodayCount } = useLimits();
+  const [showPlans, setShowPlans] = useState(false);
   
   const getPercentage = (current: number, max: number) => {
     if (limits.isIlimitado) return 0;
     return Math.min(100, (current / max) * 100);
   };
+
+  const handlePayment = (planName: string, amount: number) => {
+    alert(`Redirecionando para fechar o plano ${planName} via Mercado Pago...\n(Integração oficial MCP em breve)`);
+    // Após pagamento aprovado, webhook do MCP atualiza o userData.planType no Firestore.
+  };
+
+  if (showPlans) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex flex-col p-6 sm:p-10 max-w-6xl mx-auto">
+        <header className="flex items-center gap-4 mb-8">
+          <button onClick={() => setShowPlans(false)} className="p-2 -ml-2 rounded-full hover:bg-secondary transition-colors">
+            <ArrowLeft size={24} />
+          </button>
+          <h2 className="text-2xl font-bold flex items-center gap-2">Escolha seu plano</h2>
+        </header>
+
+        <section className="w-full relative animate-fade-in">
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto items-stretch">
+              {/* FREE */}
+              <div className="bg-card border border-border rounded-3xl p-8 flex flex-col shadow-lg flex-1">
+                 <h3 className="text-2xl font-bold mb-2">Grátis</h3>
+                 <div className="text-4xl font-extrabold mb-2 tracking-tight">R$ 0<span className="text-lg text-muted-foreground font-normal">/mês</span></div>
+                 <p className="text-sm text-muted-foreground mb-6">Para quem está dando os primeiros passos e quer testar a praticidade.</p>
+                 <ul className="space-y-4 mb-8 flex-1">
+                   <li className="flex gap-3 text-sm font-medium"><Check className="text-primary w-5 h-5 shrink-0" /> 5 Vendas por dia (áudio/scanner/manual)</li>
+                   <li className="flex gap-3 text-sm font-medium"><Check className="text-primary w-5 h-5 shrink-0" /> 10 Itens no estoque máximo</li>
+                   <li className="flex gap-3 text-sm font-medium"><Check className="text-primary w-5 h-5 shrink-0" /> Registre até 5 Clientes por dia</li>
+                   <li className="flex gap-3 text-sm font-medium"><Check className="text-primary w-5 h-5 shrink-0" /> Relatórios Diários</li>
+                 </ul>
+                 <Button disabled variant="outline" className="w-full h-12 font-bold border-primary text-primary hover:bg-primary/10">Plano Atual</Button>
+              </div>
+
+              {/* PLUS (Destaque) */}
+              <div className="bg-secondary border-2 border-primary rounded-3xl p-8 flex flex-col shadow-2xl relative transform md:-translate-y-4 flex-1 mt-4 md:mt-0">
+                 <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
+                    <Zap size={14} fill="currentColor" /> Mais Popular
+                 </div>
+                 <h3 className="text-2xl font-bold mb-2 text-foreground">Plus</h3>
+                 <div className="text-4xl font-extrabold mb-2 tracking-tight text-foreground">R$ 39,90<span className="text-lg text-muted-foreground font-normal">/mês</span></div>
+                 <p className="text-sm text-muted-foreground mb-6">Escaneie, fale e controle seu estoque com muito mais tranquilidade.</p>
+                 <ul className="space-y-4 mb-8 flex-1">
+                   <li className="flex gap-3 text-sm font-medium text-foreground"><Check className="text-primary w-5 h-5 shrink-0" /> 30 Vendas por dia</li>
+                   <li className="flex gap-3 text-sm font-medium text-foreground"><Check className="text-primary w-5 h-5 shrink-0" /> 60 Itens no estoque</li>
+                   <li className="flex gap-3 text-sm font-medium text-foreground"><Check className="text-primary w-5 h-5 shrink-0" /> Registre 30 Clientes por dia</li>
+                   <li className="flex gap-3 text-sm font-medium text-foreground"><Check className="text-primary w-5 h-5 shrink-0" /> Suporte Premium</li>
+                 </ul>
+                 <Button onClick={() => handlePayment('Plus', 39.90)} className="w-full h-12 font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-transform">
+                   Assinar Plus
+                 </Button>
+              </div>
+
+              {/* PRO */}
+              <div className="bg-card border border-border rounded-3xl p-8 flex flex-col shadow-lg relative overflow-hidden flex-1">
+                 <div className="absolute -top-10 -right-10 text-primary/10">
+                    <Crown size={150} />
+                 </div>
+                 <h3 className="text-2xl font-bold mb-2 relative z-10">Pro</h3>
+                 <div className="text-4xl font-extrabold mb-2 tracking-tight relative z-10">R$ 59,90<span className="text-lg text-muted-foreground font-normal">/mês</span></div>
+                 <p className="text-sm text-muted-foreground mb-6 relative z-10">Tudo liberado. Nenhum limite. O controle definitivo do seu empreendimento.</p>
+                 <ul className="space-y-4 mb-8 flex-1 relative z-10">
+                   <li className="flex gap-3 text-sm font-medium"><Check className="text-primary w-5 h-5 shrink-0" /> Vendas Ilimitadas ♾️</li>
+                   <li className="flex gap-3 text-sm font-medium"><Check className="text-primary w-5 h-5 shrink-0" /> Estoque Ilimitado ♾️</li>
+                   <li className="flex gap-3 text-sm font-medium"><Check className="text-primary w-5 h-5 shrink-0" /> CRM de Clientes Ilimitado ♾️</li>
+                   <li className="flex gap-3 text-sm font-medium"><Check className="text-primary w-5 h-5 shrink-0" /> IA Prioritária de Alta Velocidade</li>
+                 </ul>
+                 <Button onClick={() => handlePayment('Pro', 59.90)} variant="secondary" className="w-full h-12 font-bold hover:bg-secondary/80 relative z-10 border border-border/80">
+                   Assinar Pro
+                 </Button>
+              </div>
+           </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col p-6 sm:p-10 max-w-2xl mx-auto">
@@ -95,7 +170,7 @@ export default function PlanStatus({ onBack }: { onBack: () => void }) {
       </section>
 
       {activePlanType === 'free' && (
-         <Button size="lg" className="h-14 w-full shadow-lg text-lg animate-[pulse_2s_ease-in-out_infinite]" onClick={() => window.open('/', '_blank')}>
+         <Button size="lg" className="h-14 w-full shadow-lg text-lg animate-[pulse_2s_ease-in-out_infinite]" onClick={() => setShowPlans(true)}>
            Conhecer Planos Premium
          </Button>
       )}
