@@ -57,13 +57,18 @@ export default function QRScanner({ onScan, onClose }: { onScan: (text: string) 
     return conservativeRear || rearDevices[0];
   };
 
-  const startScanningWithId = async (html5QrCode: Html5Qrcode, cameraId: string) => {
-    if (isTransitioningRef.current) return;
+  const startScanningWithId = async (html5QrCode: Html5Qrcode, cameraId: string, cameraLabel?: string) => {
+    if (isTransitioningRef.current || !html5QrCode) return;
     isTransitioningRef.current = true;
 
     try {
       if (html5QrCode.isScanning) {
-        await html5QrCode.stop();
+        try {
+          await html5QrCode.stop();
+          html5QrCode.clear();
+        } catch (e) {
+          console.warn("Erro ignorado ao parar câmera anterior:", e);
+        }
       }
 
       await html5QrCode.start(
@@ -78,9 +83,12 @@ export default function QRScanner({ onScan, onClose }: { onScan: (text: string) 
           aspectRatio: 1.0 // Pede rácio quadrado para focalizar melhor em dispositivos móveis
         },
         (decodedText) => {
-          html5QrCode.stop().then(() => {
-            onScan(decodedText);
-          }).catch(e => console.error("Erro ao parar câmera pós leitura", e));
+          if (html5QrCode.isScanning) {
+            html5QrCode.stop().then(() => {
+              html5QrCode.clear();
+              onScan(decodedText);
+            }).catch(e => console.error("Erro ao parar câmera pós leitura", e));
+          }
         },
         () => {
           // Ignorar erros normais de scanner ativamente buscando QR Codes frames
@@ -88,15 +96,12 @@ export default function QRScanner({ onScan, onClose }: { onScan: (text: string) 
       );
 
       setActiveCameraId(cameraId);
-      // Encontra label atual amigável do dispositivo ativo
-      const currentCamera = cameras.find(c => c.id === cameraId);
-      if (currentCamera) {
-         setActiveCameraLabel(currentCamera.label);
+      if (cameraLabel) {
+         setActiveCameraLabel(cameraLabel);
       }
       setErrorMsg(null);
     } catch (err: any) {
       console.error("Erro ao iniciar fluxo com ID de câmera:", err);
-      setErrorMsg("Não foi possível acessar esta câmera de alta resolução. Tentando modo automático...");
       
       // Fallback para o modo padrão "environment" caso falte suporte do ID direto
       try {
@@ -107,9 +112,12 @@ export default function QRScanner({ onScan, onClose }: { onScan: (text: string) 
             qrbox: { width: 250, height: 250 }
           },
           (decodedText) => {
-            html5QrCode.stop().then(() => {
-              onScan(decodedText);
-            }).catch(e => console.error("Erro ao parar câmera", e));
+            if (html5QrCode.isScanning) {
+              html5QrCode.stop().then(() => {
+                html5QrCode.clear();
+                onScan(decodedText);
+              }).catch(e => console.error("Erro ao parar câmera pós leitura", e));
+            }
           },
           () => {}
         );
@@ -129,48 +137,40 @@ export default function QRScanner({ onScan, onClose }: { onScan: (text: string) 
         html5QrCodeRef.current = new Html5Qrcode("qr-reader");
       }
 
-      // Tenta forçar a permissão antes de iniciar o scanner
-      try {
-        await navigator.mediaDevices.getUserMedia({ video: true });
-      } catch (mediaErr) {
-        console.warn("Aviso ao tentar getUserMedia diretamente:", mediaErr);
-        // Não lançaremos erro aqui para deixar o Html5Qrcode tentar também
-      }
+      if (isTransitioningRef.current) return;
 
-      // Passo 1: Inicia primeiramente com facingMode nativo "environment". 
-      // Isso solicita permissão de câmera corretamente ao usuário de forma padrão.
-      await html5QrCodeRef.current.start(
-        { facingMode: "environment" },
-        {
-          fps: 15,
-          qrbox: { width: 250, height: 250 }
-        },
-        (decodedText) => {
-          if (html5QrCodeRef.current) {
-            html5QrCodeRef.current.stop().then(() => {
-               onScan(decodedText);
-            }).catch(e => console.error("Erro ao parar câmera pós leitura", e));
-          }
-        },
-        () => {}
-      );
+      setActiveCameraLabel("Solicitando permissão...");
+
+      let stream: MediaStream | null = null;
+      try {
+        // Tenta forçar a permissão antes de iniciar o scanner
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      } catch (mediaErr) {
+        console.warn("Acesso bloqueado ou negado no getUserMedia:", mediaErr);
+        throw new Error("Permissão de câmera negada");
+      }
 
       setActiveCameraLabel("Buscando melhor câmera de alta precisão...");
 
-      // Passo 2: Agora que a permissão foi concedida por rodar o fluxo, listamos todas as câmeras reais disponíveis.
+      // Agora que a permissão foi concedida, listamos todas as câmeras reais disponíveis.
       const devices = await Html5Qrcode.getCameras();
+      
+      // Stop the temp stream to release the camera for Html5Qrcode to use seamlessly
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+
       if (devices && devices.length > 0) {
         setCameras(devices);
-
         const bestRear = findBestRearCamera(devices);
         if (bestRear) {
-          // Se identificamos uma câmera mais otimizada/principal do que o padrão aleatório do navegador,
-          // reiniciamos o fluxo mirando a excelente câmera
-          setActiveCameraLabel(bestRear.label);
-          await startScanningWithId(html5QrCodeRef.current, bestRear.id);
+          await startScanningWithId(html5QrCodeRef.current, bestRear.id, bestRear.label);
+        } else {
+          await startScanningWithId(html5QrCodeRef.current, devices[0].id, devices[0].label);
         }
       } else {
-        setActiveCameraLabel("Câmera Padrão Ativa");
+        // Fallback fallback environment
+        await startScanningWithId(html5QrCodeRef.current, "environment", "Câmera Padrão Ativa");
       }
     } catch (err) {
       console.error("Setup do scanner falhou ou permissão de câmera bloqueada pelo navegador:", err);
@@ -198,8 +198,7 @@ export default function QRScanner({ onScan, onClose }: { onScan: (text: string) 
     const nextCamera = cameras[nextIndex];
 
     if (nextCamera) {
-      setActiveCameraLabel(nextCamera.label);
-      await startScanningWithId(html5QrCodeRef.current, nextCamera.id);
+      await startScanningWithId(html5QrCodeRef.current, nextCamera.id, nextCamera.label);
     }
   };
 
