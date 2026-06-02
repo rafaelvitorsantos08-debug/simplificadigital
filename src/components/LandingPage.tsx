@@ -38,7 +38,7 @@ export default function LandingPage() {
            Pare de perder dinheiro por falta de organização.
          </h1>
          <p className="text-muted-foreground text-center text-lg sm:text-xl max-w-2xl mb-10 animate-fade-in" style={{animationDelay: '200ms'}}>
-           Um sistema de vendas no seu bolso com controle de estoque, leitura de código de barras e registro por voz através de Inteligência Artificial.
+           Um sistema de vendas no seu bolso com controle de estoque, leitura de QR Code e registro por voz através de Inteligência Artificial.
          </p>
          
          {error && (
