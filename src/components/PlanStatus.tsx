@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ArrowLeft, Crown, Check, AlertCircle, Zap } from 'lucide-react';
 import { Button } from './ui/button';
 import { useLimits } from '../hooks/useLimits';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function PlanStatus({ onBack }: { onBack: () => void }) {
   const { activePlanType, limits, salesTodayCount, inventoryCount, clientsTodayCount } = useLimits();
@@ -12,9 +13,30 @@ export default function PlanStatus({ onBack }: { onBack: () => void }) {
     return Math.min(100, (current / max) * 100);
   };
 
-  const handlePayment = (planName: string, amount: number) => {
-    alert(`Redirecionando para fechar o plano ${planName} via Mercado Pago...\n(Integração oficial MCP em breve)`);
-    // Após pagamento aprovado, webhook do MCP atualiza o userData.planType no Firestore.
+  const { user } = useAuth();
+
+  const handlePayment = async (planName: string, amount: number) => {
+    try {
+      const res = await fetch('/api/create-preference', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planType: planName.toLowerCase(),
+          amount,
+          email: user?.email,
+          uid: user?.uid
+        })
+      });
+      const data = await res.json();
+      
+      if (data.init_point) {
+        window.location.href = data.init_point;
+      } else {
+        alert(data.error || 'Erro ao gerar pagamento.');
+      }
+    } catch (e) {
+      alert("Erro de conexão ao gerar pagamento.");
+    }
   };
 
   if (showPlans) {

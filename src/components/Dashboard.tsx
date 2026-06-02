@@ -689,39 +689,24 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
       
       {/* HEADER */}
       <header className="flex justify-between items-center mb-10 w-full animate-fade-in relative pt-2">
-        <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            className="hidden" 
-            accept="image/*" 
-            onChange={handleLogoUpload}
-          />
-          {isUploadingLogo ? (
-            <div className="h-10 w-10 sm:h-12 sm:w-12 rounded bg-secondary/50 flex items-center justify-center border border-border">
-              <Loader2 className="w-5 h-5 animate-spin text-primary" />
-            </div>
-          ) : hasLogo ? (
+        <div className="relative">
+          {hasLogo ? (
             <div className="relative h-10 sm:h-12 flex items-center">
                <img src={userData.logoUrl} alt="Logo do app" className="h-full object-contain drop-shadow-md rounded" />
-               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded">
-                 <Pencil className="w-4 h-4 text-white" />
-               </div>
             </div>
           ) : (
-            <div className="text-2xl font-extrabold tracking-tight flex items-center gap-2 group-hover:opacity-80 transition-opacity">
+            <div className="text-2xl font-extrabold tracking-tight flex items-center gap-2">
               SIMPLIFICA<span className="text-primary">DIGITAL</span>
-              <ImageIcon size={14} className="opacity-0 group-hover:opacity-50 text-muted-foreground ml-1" />
             </div>
           )}
         </div>
         <div className="flex items-center gap-2">
           {/* Botões adaptativos de instalação do app (PWA) */}
-          <InstallApp variant="button" className="hidden sm:flex" />
-          <InstallApp variant="icon" className="flex sm:hidden bg-secondary/50 border border-border/40 rounded-xl" />
+          <InstallApp variant="button" className="hidden lg:flex" />
+          <InstallApp variant="icon" className="flex lg:hidden bg-secondary/50 border border-border/40 rounded-xl" />
           
-          <Button variant="outline" size="sm" className="hidden sm:flex" onClick={() => setActiveAction('plan')}>
-             <Crown size={14} className="mr-2 text-primary" /> Meu Plano
+          <Button variant="outline" size="sm" className="flex bg-secondary/50 border-border/40 shadow-sm" onClick={() => setActiveAction('plan')}>
+             <Crown size={14} className="mr-1 sm:mr-2 text-primary" /> <span className="hidden sm:inline">Meu Plano</span><span className="sm:hidden">Plano</span>
           </Button>
 
           <div className="flex items-center gap-3 bg-secondary/50 px-4 py-2 rounded-full border border-border/40 shadow-sm backdrop-blur-sm">

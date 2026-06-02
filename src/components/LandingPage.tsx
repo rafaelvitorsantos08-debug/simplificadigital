@@ -4,12 +4,34 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function LandingPage() {
-  const { loginWithGoogle, loginWithGoogleRedirect, error, loading } = useAuth();
+  const { loginWithGoogle, loginWithGoogleRedirect, error, loading, user } = useAuth();
   
-  const handlePayment = (planName: string, amount: number) => {
-    // Integração futura Mercado Pago
-    alert(`Redirecionando para fechar o plano ${planName} via Mercado Pago...\n(Integração oficial MCP em breve)`);
-    // Após pagamento aprovado, o webhook do MCP atualizaria o userData.planType no Firestore.
+  const handlePayment = async (planName: string, amount: number) => {
+    if (!user) {
+        alert("Por favor, faça login ou cadastre-se primeiro antes de assinar.");
+        return loginWithGoogle();
+    }
+    try {
+      const res = await fetch('/api/create-preference', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planType: planName.toLowerCase(),
+          amount,
+          email: user?.email,
+          uid: user?.uid
+        })
+      });
+      const data = await res.json();
+      
+      if (data.init_point) {
+        window.location.href = data.init_point;
+      } else {
+        alert(data.error || 'Erro ao gerar pagamento.');
+      }
+    } catch (e) {
+      alert("Erro de conexão ao gerar pagamento.");
+    }
   };
 
   return (
