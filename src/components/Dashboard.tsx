@@ -197,7 +197,13 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
       let targetDoc: any = null;
 
       // Find in inventory first
-      if (saleData.produto) {
+      if (saleData.matchedProductId) {
+        const matched = inventoryItems.find(item => item.id === saleData.matchedProductId);
+        if (matched) {
+          targetDoc = { id: matched.id, ...matched };
+          costPrice = matched.costPrice || 0;
+        }
+      } else if (saleData.produto) {
         const normalizedSearch = String(saleData.produto).toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         const matched = inventoryItems.find(item => {
           const normName = (item.name || '').toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -685,7 +691,7 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
   // --- DASHBOARD PRINCIPAL ---
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col p-6 sm:p-10 max-w-6xl mx-auto h-full relative">
+    <div className="min-h-screen bg-background text-foreground flex flex-col p-6 sm:p-10 max-w-6xl mx-auto relative h-full">
       
       {/* HEADER */}
       <header className="flex justify-between items-center mb-10 w-full animate-fade-in relative pt-2">
@@ -780,32 +786,46 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
         </div>
         
         {/* Sub Cards Inteligentes */}
-        <div className="grid grid-rows-2 gap-6 z-10 relative">
-          <div className="bg-card rounded-[24px] p-6 lg:p-8 flex flex-col shadow-lg border border-border/30 relative overflow-hidden group">
+        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 lg:grid-rows-3 gap-6 z-10 relative">
+          <div className="bg-card rounded-[24px] p-6 flex flex-col shadow-lg border border-border/30 relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
             <div className="flex justify-between items-start mb-2 relative z-10">
               <div>
                 <div className="text-[12px] sm:text-[14px] uppercase tracking-[2px] text-muted-foreground mb-1 font-medium">Estoque / Serviços</div>
                 <div className="text-sm text-foreground/50 italic mb-4">Gerencie seu portfólio</div>
               </div>
-              <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-primary"><PackagePlus size={20}/></div>
+              <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-primary shrink-0"><PackagePlus size={20}/></div>
             </div>
             <Button variant="secondary" className="mt-auto w-full font-semibold border border-primary/20 text-primary hover:bg-primary/10 relative z-10" onClick={() => setActiveAction('inventory')}>
               Gerenciar Estoque
             </Button>
           </div>
           
-          <div className="bg-card rounded-[24px] p-6 lg:p-8 flex flex-col shadow-lg border border-border/30 relative overflow-hidden group">
+          <div className="bg-card rounded-[24px] p-6 flex flex-col shadow-lg border border-border/30 relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-br from-[#FFB800]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
             <div className="flex justify-between items-start mb-2 relative z-10">
               <div>
                 <div className="text-[12px] sm:text-[14px] uppercase tracking-[2px] text-muted-foreground mb-1 font-medium">CRM de Vendas</div>
                 <div className="text-sm text-foreground/50 italic mb-4">Acompanhe leads e clientes</div>
               </div>
-              <div className="w-10 h-10 bg-[#FFB800]/10 rounded-full flex items-center justify-center text-[#FFB800]"><UserPlus size={20}/></div>
+              <div className="w-10 h-10 bg-[#FFB800]/10 rounded-full flex items-center justify-center text-[#FFB800] shrink-0"><UserPlus size={20}/></div>
             </div>
             <Button variant="secondary" className="mt-auto w-full font-semibold border border-[#FFB800]/20 text-[#FFB800] hover:bg-[#FFB800]/10 relative z-10" onClick={() => setActiveAction('clients')}>
               Abrir CRM
+            </Button>
+          </div>
+
+          <div className="bg-card rounded-[24px] p-6 flex flex-col shadow-lg border border-border/30 relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#8B5CF6]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+            <div className="flex justify-between items-start mb-2 relative z-10">
+              <div>
+                <div className="text-[12px] sm:text-[14px] uppercase tracking-[2px] text-muted-foreground mb-1 font-medium">Relatórios</div>
+                <div className="text-sm text-foreground/50 italic mb-4">Análise total de ganhos</div>
+              </div>
+              <div className="w-10 h-10 bg-[#8B5CF6]/10 rounded-full flex items-center justify-center text-[#8B5CF6] shrink-0"><BarChart3 size={20}/></div>
+            </div>
+            <Button variant="secondary" className="mt-auto w-full font-semibold border border-[#8B5CF6]/20 text-[#8B5CF6] hover:bg-[#8B5CF6]/10 relative z-10" onClick={() => setActiveAction('reports')}>
+              Abrir Relatórios
             </Button>
           </div>
         </div>
@@ -813,22 +833,18 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
       </div>
 
       {/* BARRA DE AÇÕES INFERIOR */}
-      <div className="flex gap-2 sm:gap-4 w-full mt-8 mb-4 z-10 sm:h-[130px] items-end justify-between">
-        <button onClick={() => handleActionClick('manual')} className="flex-1 max-w-[120px] h-[80px] sm:h-[100px] rounded-2xl bg-card text-foreground border border-border flex flex-col items-center justify-center gap-1 sm:gap-2 font-semibold text-[11px] sm:text-[14px] cursor-pointer transition-all hover:-translate-y-1 hover:border-primary/50 hover:bg-secondary/50 shadow-md active:scale-95 text-center leading-tight">
-          <ShoppingBag size={20} className="text-foreground/70" /> Venda<br className="hidden sm:block"/> Manual
-        </button>
-        
-        <button onClick={() => handleActionClick('scanner')} className="flex-1 max-w-[120px] h-[80px] sm:h-[100px] rounded-2xl bg-card text-foreground border border-border flex flex-col items-center justify-center gap-1 sm:gap-2 font-semibold text-[11px] sm:text-[14px] cursor-pointer transition-all hover:-translate-y-1 hover:border-primary/50 hover:bg-secondary/50 shadow-md active:scale-95 text-center leading-tight">
-          <Camera size={20} strokeWidth={2.5} className="text-foreground/70" /> <span className="hidden sm:inline">Registrar</span><br className="hidden sm:block"/> Scanner
+      <div className="flex gap-4 sm:gap-6 w-full mt-4 mb-4 z-10 sm:h-[130px] items-end justify-center max-w-2xl mx-auto">
+        <button onClick={() => handleActionClick('manual')} className="flex-1 max-w-[120px] h-[80px] sm:h-[100px] rounded-[28px] bg-card text-foreground border border-border flex flex-col items-center justify-center gap-1 sm:gap-2 font-semibold text-[11px] sm:text-[14px] cursor-pointer transition-all hover:-translate-y-1 hover:border-primary/50 hover:bg-secondary/50 shadow-md active:scale-95 text-center leading-tight">
+          <ShoppingBag size={24} className="text-foreground/70" /> Venda<br className="hidden sm:block"/> Manual
         </button>
         
         {/* BIG AUDIO BUTTON */}
-        <button onClick={() => handleActionClick('audio')} className="w-[80px] h-[80px] sm:w-[130px] sm:h-[130px] rounded-full bg-primary text-primary-foreground flex flex-col items-center justify-center gap-1 sm:gap-2 font-bold text-[11px] sm:text-[16px] cursor-pointer transition-all hover:-translate-y-2 shadow-[0_4px_20px_rgba(0,255,102,0.4)] hover:shadow-[0_8px_40px_rgba(0,255,102,0.6)] active:scale-95 mb-0 sm:mb-2 text-center leading-tight shrink-0">
-          <Mic size={28} strokeWidth={2.5} className="sm:w-[42px] sm:h-[42px]" /> <span className="hidden sm:inline">Áudio</span>
+        <button onClick={() => handleActionClick('audio')} className="w-[100px] h-[100px] sm:w-[130px] sm:h-[130px] rounded-full bg-primary text-primary-foreground flex flex-col items-center justify-center gap-1 sm:gap-2 font-bold text-[14px] sm:text-[18px] cursor-pointer transition-all hover:-translate-y-2 shadow-[0_4px_20px_rgba(0,255,102,0.4)] hover:shadow-[0_8px_40px_rgba(0,255,102,0.6)] active:scale-95 text-center leading-tight shrink-0 mx-2 sm:mx-6 border-4 sm:border-[8px] border-background">
+          <Mic size={36} strokeWidth={2.5} className="sm:w-[48px] sm:h-[48px]" /> <span className="hidden sm:inline">Áudio</span>
         </button>
 
-        <button onClick={() => setActiveAction('reports')} className="flex-1 max-w-[120px] h-[80px] sm:h-[100px] rounded-2xl bg-card text-foreground border border-border flex flex-col items-center justify-center gap-1 sm:gap-2 font-semibold text-[11px] sm:text-[14px] cursor-pointer transition-all hover:-translate-y-1 hover:border-primary/50 hover:bg-secondary/50 shadow-md active:scale-95 text-center leading-tight">
-          <BarChart3 size={20} strokeWidth={2.5} className="text-foreground/70" /> Relatórios
+        <button onClick={() => handleActionClick('scanner')} className="flex-1 max-w-[120px] h-[80px] sm:h-[100px] rounded-[28px] bg-card text-foreground border border-border flex flex-col items-center justify-center gap-1 sm:gap-2 font-semibold text-[11px] sm:text-[14px] cursor-pointer transition-all hover:-translate-y-1 hover:border-primary/50 hover:bg-secondary/50 shadow-md active:scale-95 text-center leading-tight">
+          <Camera size={24} strokeWidth={2.5} className="text-foreground/70" /> <span className="hidden sm:inline">Registrar</span><br className="hidden sm:block"/> Scanner
         </button>
       </div>
     </div>

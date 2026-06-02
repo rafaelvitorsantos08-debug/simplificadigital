@@ -9,6 +9,7 @@ import { Sparkles, Loader2, LogIn, LogOut, Camera, Mic, BarChart3, TrendingUp } 
 import { Button } from '@/components/ui/button';
 
 function MainApp() {
+  // Comentário inserido para falso positivo de commit
   const { user, userData, loading, error, clearError, loginWithGoogle, loginWithGoogleRedirect, logout, updateUserData } = useAuth();
 
   if (loading) {
