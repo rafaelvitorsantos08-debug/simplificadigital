@@ -4,9 +4,23 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { db } from '../lib/firebase';
 import { collection, query, where, getDocs, deleteDoc, updateDoc, doc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useLimits } from '../hooks/useLimits';
 
 export default function InventoryManager({ user, onBack }: any) {
+  const { checkCanAddInventory, incrementInventory, decrementInventory } = useLimits();
   const [items, setItems] = useState<any[]>([]);
+
+  // ..... later in code when saving .....
+  const openNewItemModal = () => {
+    if (!checkCanAddInventory()) {
+      alert("⚠️ Você atingiu seu limite de estoque do seu plano atual. Acesse 'Meu Plano' para atualizar e ter estoque ilimitado!");
+      return;
+    }
+    setEditingId(null);
+    setName(''); setSummary(''); setQty(''); setPrice(''); setCostPrice(''); setPhotoUrl('');
+    setShowModal(true);
+  };
+
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -53,6 +67,10 @@ export default function InventoryManager({ user, onBack }: any) {
   }, [user.uid]);
 
   const openAddModal = () => {
+    if (!checkCanAddInventory()) {
+      alert("⚠️ Você atingiu seu limite de estoque do seu plano. Acesse 'Meu Plano' para atualizar e ter estoque ilimitado!");
+      return;
+    }
     setEditingId(null);
     setName(''); setSummary(''); setQty(''); setPrice(''); setCostPrice(''); setPhotoUrl('');
     setShowModal(true);
@@ -146,6 +164,7 @@ export default function InventoryManager({ user, onBack }: any) {
         await updateDoc(doc(db, 'inventory', editingId), payload);
       } else {
         await addDoc(collection(db, 'inventory'), { ...payload, createdAt: serverTimestamp() });
+        incrementInventory();
       }
       setShowModal(false);
       fetchItems();
@@ -159,6 +178,7 @@ export default function InventoryManager({ user, onBack }: any) {
     if (confirm("Tem certeza que deseja excluir?")) {
       try {
         await deleteDoc(doc(db, 'inventory', id));
+        decrementInventory();
         fetchItems();
       } catch (e) {
         console.error(e);

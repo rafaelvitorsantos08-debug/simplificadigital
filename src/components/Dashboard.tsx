@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Mic, BarChart3, TrendingUp, PackagePlus, UserPlus, X, Phone, StopCircle, RefreshCcw, Loader2, CheckCircle2, Pencil, Check, Image as ImageIcon } from 'lucide-react';
+import { Camera, Mic, BarChart3, TrendingUp, PackagePlus, UserPlus, X, Phone, StopCircle, RefreshCcw, Loader2, CheckCircle2, Pencil, Check, Image as ImageIcon, Crown, ShoppingBag } from 'lucide-react';
 import { Button } from './ui/button';
 import { processAudioSale, processPhotoSale } from '../services/geminiService';
 import { db, storage } from '../lib/firebase';
@@ -11,8 +11,12 @@ import ClientManager from './ClientManager';
 import ReportsDashboard from './ReportsDashboard';
 import QRScanner from './QRScanner';
 import InstallApp from './InstallApp';
+import ManualSale from './ManualSale';
+import PlanStatus from './PlanStatus';
+import { useLimits } from '../hooks/useLimits';
 
 export default function Dashboard({ userData, user, logout, updateUserData }: any) {
+  const { checkCanSell, checkCanAddInventory, checkCanAddClient, activePlanType, incrementSales } = useLimits();
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [saleResult, setSaleResult] = useState<any>(null);
@@ -230,6 +234,7 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
             ));
           }
       }
+      incrementSales();
 
     } catch(e) {
       console.error("Erro ao salvar venda/estoque:", e);
@@ -481,6 +486,32 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
 
   // --- RENDERS DE TELAS INTEIRAS (Ações Principais) ---
 
+  const handleActionClick = (action: string) => {
+    if ((action === 'audio' || action === 'scanner' || action === 'manual') && !checkCanSell()) {
+      alert("⚠️ Você atingiu seu limite diário de vendas do seu plano atual. Acesse 'Meu Plano' para atualizar e vender ilimitadamente!");
+      return;
+    }
+    setActiveAction(action);
+  };
+
+  if (activeAction === 'manual') {
+    return (
+      <ManualSale 
+        onBack={() => setActiveAction(null)}
+        inventoryItems={inventoryItems}
+        onSave={async (saleData) => {
+          await saveSaleToDB(saleData);
+          setSaleResult(saleData);
+          setActiveAction(null);
+        }}
+      />
+    );
+  }
+
+  if (activeAction === 'plan') {
+    return <PlanStatus onBack={() => setActiveAction(null)} />;
+  }
+
   if (activeAction === 'audio') {
     return (
       <div className="min-h-screen bg-background text-foreground flex flex-col p-6 sm:p-10 max-w-6xl mx-auto items-center justify-center">
@@ -688,6 +719,10 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
           {/* Botões adaptativos de instalação do app (PWA) */}
           <InstallApp variant="button" className="hidden sm:flex" />
           <InstallApp variant="icon" className="flex sm:hidden bg-secondary/50 border border-border/40 rounded-xl" />
+          
+          <Button variant="outline" size="sm" className="hidden sm:flex" onClick={() => setActiveAction('plan')}>
+             <Crown size={14} className="mr-2 text-primary" /> Meu Plano
+          </Button>
 
           <div className="flex items-center gap-3 bg-secondary/50 px-4 py-2 rounded-full border border-border/40 shadow-sm backdrop-blur-sm">
             <div className="w-2 h-2 sm:w-3 sm:h-3 bg-primary rounded-full shadow-[0_0_8px_rgba(0,255,102,0.8)]"></div>
@@ -793,17 +828,21 @@ export default function Dashboard({ userData, user, logout, updateUserData }: an
       </div>
 
       {/* BARRA DE AÇÕES INFERIOR */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-4 w-full mt-8 mb-4 z-10 sm:h-[130px] items-end justify-items-center">
-        <button onClick={() => setActiveAction('scanner')} className="w-full max-w-[120px] h-[80px] sm:h-[100px] rounded-2xl bg-card text-foreground border border-border flex flex-col items-center justify-center gap-1 sm:gap-2 font-semibold text-[11px] sm:text-[14px] cursor-pointer transition-all hover:-translate-y-1 hover:border-primary/50 hover:bg-secondary/50 shadow-md active:scale-95 text-center leading-tight">
+      <div className="flex gap-2 sm:gap-4 w-full mt-8 mb-4 z-10 sm:h-[130px] items-end justify-between">
+        <button onClick={() => handleActionClick('manual')} className="flex-1 max-w-[120px] h-[80px] sm:h-[100px] rounded-2xl bg-card text-foreground border border-border flex flex-col items-center justify-center gap-1 sm:gap-2 font-semibold text-[11px] sm:text-[14px] cursor-pointer transition-all hover:-translate-y-1 hover:border-primary/50 hover:bg-secondary/50 shadow-md active:scale-95 text-center leading-tight">
+          <ShoppingBag size={20} className="text-foreground/70" /> Venda<br className="hidden sm:block"/> Manual
+        </button>
+        
+        <button onClick={() => handleActionClick('scanner')} className="flex-1 max-w-[120px] h-[80px] sm:h-[100px] rounded-2xl bg-card text-foreground border border-border flex flex-col items-center justify-center gap-1 sm:gap-2 font-semibold text-[11px] sm:text-[14px] cursor-pointer transition-all hover:-translate-y-1 hover:border-primary/50 hover:bg-secondary/50 shadow-md active:scale-95 text-center leading-tight">
           <Camera size={20} strokeWidth={2.5} className="text-foreground/70" /> <span className="hidden sm:inline">Registrar</span><br className="hidden sm:block"/> Scanner
         </button>
         
         {/* BIG AUDIO BUTTON */}
-        <button onClick={() => setActiveAction('audio')} className="w-[80px] h-[80px] sm:w-[130px] sm:h-[130px] rounded-full bg-primary text-primary-foreground flex flex-col items-center justify-center gap-1 sm:gap-2 font-bold text-[11px] sm:text-[16px] cursor-pointer transition-all hover:-translate-y-2 shadow-[0_4px_20px_rgba(0,255,102,0.4)] hover:shadow-[0_8px_40px_rgba(0,255,102,0.6)] active:scale-95 mb-0 sm:mb-2 text-center leading-tight">
+        <button onClick={() => handleActionClick('audio')} className="w-[80px] h-[80px] sm:w-[130px] sm:h-[130px] rounded-full bg-primary text-primary-foreground flex flex-col items-center justify-center gap-1 sm:gap-2 font-bold text-[11px] sm:text-[16px] cursor-pointer transition-all hover:-translate-y-2 shadow-[0_4px_20px_rgba(0,255,102,0.4)] hover:shadow-[0_8px_40px_rgba(0,255,102,0.6)] active:scale-95 mb-0 sm:mb-2 text-center leading-tight shrink-0">
           <Mic size={28} strokeWidth={2.5} className="sm:w-[42px] sm:h-[42px]" /> <span className="hidden sm:inline">Áudio</span>
         </button>
 
-        <button onClick={() => setActiveAction('reports')} className="w-full max-w-[120px] h-[80px] sm:h-[100px] rounded-2xl bg-card text-foreground border border-border flex flex-col items-center justify-center gap-1 sm:gap-2 font-semibold text-[11px] sm:text-[14px] cursor-pointer transition-all hover:-translate-y-1 hover:border-primary/50 hover:bg-secondary/50 shadow-md active:scale-95 text-center leading-tight">
+        <button onClick={() => setActiveAction('reports')} className="flex-1 max-w-[120px] h-[80px] sm:h-[100px] rounded-2xl bg-card text-foreground border border-border flex flex-col items-center justify-center gap-1 sm:gap-2 font-semibold text-[11px] sm:text-[14px] cursor-pointer transition-all hover:-translate-y-1 hover:border-primary/50 hover:bg-secondary/50 shadow-md active:scale-95 text-center leading-tight">
           <BarChart3 size={20} strokeWidth={2.5} className="text-foreground/70" /> Relatórios
         </button>
       </div>

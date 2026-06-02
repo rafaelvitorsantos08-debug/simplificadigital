@@ -4,8 +4,10 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { db } from '../lib/firebase';
 import { collection, query, where, getDocs, deleteDoc, updateDoc, doc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useLimits } from '../hooks/useLimits';
 
 export default function ClientManager({ user, onBack }: any) {
+  const { checkCanAddClient, incrementClients } = useLimits();
   const [clients, setClients] = useState<any[]>([]);
   const [inventoryItems, setInventoryItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +50,10 @@ export default function ClientManager({ user, onBack }: any) {
   }, [user.uid]);
 
   const openAddModal = () => {
+    if (!checkCanAddClient()) {
+      alert("⚠️ Você atingiu seu limite diário de clientes. Acesse 'Meu Plano' para atualizar para o Plus ou Pro!");
+      return;
+    }
     setEditingId(null);
     setName(''); setSocialName(''); setWhatsapp(''); setItem('');
     setStatus('Lead'); setFollowUp(''); setNotes('');
@@ -82,6 +88,7 @@ export default function ClientManager({ user, onBack }: any) {
         await updateDoc(doc(db, 'clients', editingId), payload);
       } else {
         const docRef = await addDoc(collection(db, 'clients'), { ...payload, createdAt: serverTimestamp() });
+        incrementClients();
         savedId = docRef.id;
       }
       

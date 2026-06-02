@@ -11,6 +11,9 @@ interface UserData {
   businessName?: string;
   segment?: string;
   dailyGoal?: number;
+  logoUrl?: string; // from Dashboard
+  planType?: 'free' | 'plus' | 'pro';
+  planExpiresAt?: number;
 }
 
 interface AuthContextType {
