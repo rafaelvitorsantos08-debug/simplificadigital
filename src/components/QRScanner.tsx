@@ -122,51 +122,64 @@ export default function QRScanner({ onScan, onClose }: { onScan: (text: string) 
     }
   };
 
-  useEffect(() => {
-    const html5QrCode = new Html5Qrcode("qr-reader");
-    html5QrCodeRef.current = html5QrCode;
+  const setupScanner = async () => {
+    setErrorMsg(null);
+    try {
+      if (!html5QrCodeRef.current) {
+        html5QrCodeRef.current = new Html5Qrcode("qr-reader");
+      }
 
-    const setupScanner = async () => {
+      // Tenta forçar a permissão antes de iniciar o scanner
       try {
-        // Passo 1: Inicia primeiramente com facingMode nativo "environment". 
-        // Isso solicita permissão de câmera corretamente ao usuário de forma padrão.
-        await html5QrCode.start(
-          { facingMode: "environment" },
-          {
-            fps: 15,
-            qrbox: { width: 250, height: 250 }
-          },
-          (decodedText) => {
-            html5QrCode.stop().then(() => {
+        await navigator.mediaDevices.getUserMedia({ video: true });
+      } catch (mediaErr) {
+        console.warn("Aviso ao tentar getUserMedia diretamente:", mediaErr);
+        // Não lançaremos erro aqui para deixar o Html5Qrcode tentar também
+      }
+
+      // Passo 1: Inicia primeiramente com facingMode nativo "environment". 
+      // Isso solicita permissão de câmera corretamente ao usuário de forma padrão.
+      await html5QrCodeRef.current.start(
+        { facingMode: "environment" },
+        {
+          fps: 15,
+          qrbox: { width: 250, height: 250 }
+        },
+        (decodedText) => {
+          if (html5QrCodeRef.current) {
+            html5QrCodeRef.current.stop().then(() => {
                onScan(decodedText);
             }).catch(e => console.error("Erro ao parar câmera pós leitura", e));
-          },
-          () => {}
-        );
-
-        setActiveCameraLabel("Buscando melhor câmera de alta precisão...");
-
-        // Passo 2: Agora que a permissão foi concedida por rodar o fluxo, listamos todas as câmeras reais disponíveis.
-        const devices = await Html5Qrcode.getCameras();
-        if (devices && devices.length > 0) {
-          setCameras(devices);
-
-          const bestRear = findBestRearCamera(devices);
-          if (bestRear) {
-            // Se identificamos uma câmera mais otimizada/principal do que o padrão aleatório do navegador,
-            // reiniciamos o fluxo mirando a excelente câmera
-            setActiveCameraLabel(bestRear.label);
-            await startScanningWithId(html5QrCode, bestRear.id);
           }
-        } else {
-          setActiveCameraLabel("Câmera Padrão Ativa");
-        }
-      } catch (err) {
-        console.error("Setup do scanner falhou ou permissão de câmera bloqueada pelo navegador:", err);
-        setErrorMsg("Acesso à câmera bloqueado. Por favor, conceda permissão nas configurações de privacidade.");
-      }
-    };
+        },
+        () => {}
+      );
 
+      setActiveCameraLabel("Buscando melhor câmera de alta precisão...");
+
+      // Passo 2: Agora que a permissão foi concedida por rodar o fluxo, listamos todas as câmeras reais disponíveis.
+      const devices = await Html5Qrcode.getCameras();
+      if (devices && devices.length > 0) {
+        setCameras(devices);
+
+        const bestRear = findBestRearCamera(devices);
+        if (bestRear) {
+          // Se identificamos uma câmera mais otimizada/principal do que o padrão aleatório do navegador,
+          // reiniciamos o fluxo mirando a excelente câmera
+          setActiveCameraLabel(bestRear.label);
+          await startScanningWithId(html5QrCodeRef.current, bestRear.id);
+        }
+      } else {
+        setActiveCameraLabel("Câmera Padrão Ativa");
+      }
+    } catch (err) {
+      console.error("Setup do scanner falhou ou permissão de câmera bloqueada pelo navegador:", err);
+      setErrorMsg("Acesso à câmera negado. Para usar o scanner, você precisa liberar a permissão.");
+    }
+  };
+
+  useEffect(() => {
+    html5QrCodeRef.current = new Html5Qrcode("qr-reader");
     setupScanner();
 
     return () => {
@@ -212,9 +225,21 @@ export default function QRScanner({ onScan, onClose }: { onScan: (text: string) 
         </div>
 
         {errorMsg && (
-          <div className="flex items-center gap-2 text-xs py-2 px-4 rounded-xl bg-destructive/10 text-destructive font-semibold border border-destructive/20 mb-4 max-w-xs text-center">
-            <AlertCircle size={15} />
-            <span>{errorMsg}</span>
+          <div className="flex flex-col items-center gap-3 py-4 px-5 rounded-2xl bg-destructive/10 border border-destructive/30 mb-4 max-w-sm text-center shadow-lg w-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 backdrop-blur-md">
+            <div className="flex items-center gap-2 text-destructive font-bold text-sm">
+              <AlertCircle size={22} className="shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+            
+            <button 
+              onClick={setupScanner}
+              className="mt-2 w-full py-3.5 px-4 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-bold transition-all shadow-md active:scale-[0.98]"
+            >
+              Conceder Permissão
+            </button>
+            <p className="text-[10px] text-muted-foreground mt-1 px-2 leading-tight">
+              Se você bloqueou sem querer, clique no ícone de "cadeado" ou "informação" na barra de endereços do navegador e ative a Câmera, depois tente novamente.
+            </p>
           </div>
         )}
 
